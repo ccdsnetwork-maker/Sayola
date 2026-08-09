@@ -10,6 +10,7 @@ const links = [
   { name: "Home", href: "/" },
   { name: "About", href: "/about" },
   { name: "Properties", href: "/properties" },
+  { name: "Real Estate Gist", href: "/real-estate-gist" },
   { name: "Logistics", href: "/logistics" },
   { name: "Our Team", href: "/team" },
   { name: "Contact", href: "/contact" },
