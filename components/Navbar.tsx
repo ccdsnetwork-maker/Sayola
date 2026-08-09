@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { Menu, X, ArrowUpRight } from "lucide-react";
@@ -27,16 +28,20 @@ export default function Navbar() {
             className="flex items-center gap-3"
             onClick={() => setOpen(false)}
           >
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0A2342] text-lg font-extrabold text-white shadow-lg">
-              SK
+            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white shadow-sm">
+              <Image
+                src="/images/sayola.png"
+                alt="SAYOLA KAYBEE GLOBAL LIMITED"
+                fill
+                sizes="48px"
+                className="object-contain"
+                priority
+              />
             </div>
 
-            <div className="hidden sm:block">
-              <p className="font-bold leading-tight text-[#0A2342]">
-                SAYOLA KAYBEE
-              </p>
-              <p className="text-[10px] font-semibold tracking-[0.18em] text-[#FF6B00]">
-                GLOBAL LIMITED
+            <div className="min-w-0">
+              <p className="whitespace-nowrap text-[11px] font-extrabold leading-tight text-[#0A2342] sm:text-sm md:text-base">
+                SAYOLA KAYBEE GLOBAL LIMITED
               </p>
             </div>
           </Link>

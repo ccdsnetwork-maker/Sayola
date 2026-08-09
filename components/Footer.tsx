@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 const quickLinks = [
@@ -29,8 +30,14 @@ export default function Footer() {
               href="/"
               className="inline-flex items-center gap-3"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#FF6B00] text-lg font-extrabold">
-                SK
+              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-white">
+                <Image
+                  src="/images/sayola.png"
+                  alt="SAYOLA KAYBEE GLOBAL LIMITED"
+                  fill
+                  sizes="56px"
+                  className="object-contain"
+                />
               </div>
 
               <div>
@@ -147,32 +154,67 @@ export default function Footer() {
                   Connect With Us
                 </p>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  {/* Facebook */}
                   <a
                     href="https://www.facebook.com/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold transition hover:border-[#FF6B00] hover:text-[#FF6B00]"
+                    aria-label="Facebook - SAYOLA KAYBEE Global Limited"
+                    title="Facebook"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-white transition-all duration-300 hover:-translate-y-1 hover:border-[#FF6B00] hover:bg-[#FF6B00]"
                   >
-                    Facebook
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-5 w-5 fill-current"
+                      aria-hidden="true"
+                    >
+                      <path d="M14 8h3V4h-3c-3.31 0-5 1.69-5 5v3H6v4h3v8h4v-8h3l1-4h-4V9c0-.67.33-1 1-1z" />
+                    </svg>
                   </a>
 
+                  {/* Instagram */}
                   <a
                     href="https://www.instagram.com/sayolakaybeegloballtd"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold transition hover:border-[#FF6B00] hover:text-[#FF6B00]"
+                    aria-label="Instagram - @sayolakaybeegloballtd"
+                    title="Instagram"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-white transition-all duration-300 hover:-translate-y-1 hover:border-[#FF6B00] hover:bg-[#FF6B00]"
                   >
-                    Instagram
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-5 w-5 fill-none stroke-current"
+                      strokeWidth="2"
+                      aria-hidden="true"
+                    >
+                      <rect x="3" y="3" width="18" height="18" rx="5" />
+                      <circle cx="12" cy="12" r="4" />
+                      <circle
+                        cx="17.5"
+                        cy="6.5"
+                        r="1"
+                        className="fill-current stroke-none"
+                      />
+                    </svg>
                   </a>
 
+                  {/* WhatsApp */}
                   <a
                     href="https://wa.me/2348132566255"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-lg border border-[#FF6B00]/50 px-3 py-2 text-xs font-bold text-[#FF6B00] transition hover:bg-[#FF6B00] hover:text-white"
+                    aria-label="Chat with SAYOLA KAYBEE Global Limited on WhatsApp"
+                    title="WhatsApp"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-[#FF6B00]/50 text-[#FF6B00] transition-all duration-300 hover:-translate-y-1 hover:bg-[#FF6B00] hover:text-white"
                   >
-                    WhatsApp
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-5 w-5 fill-current"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 2a9.9 9.9 0 0 0-8.54 15.02L2 22l5.15-1.35A10 10 0 1 0 12 2Zm0 18a8 8 0 0 1-4.08-1.12l-.29-.17-3.05.8.81-2.97-.19-.3A8 8 0 1 1 12 20Zm4.39-5.99c-.24-.12-1.43-.7-1.65-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.43-1.34-1.67-.14-.24-.01-.37.1-.49.1-.1.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.47-.4-.4-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.11.16 1.53.1.47-.07 1.43-.58 1.63-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28Z" />
+                    </svg>
                   </a>
                 </div>
               </div>
