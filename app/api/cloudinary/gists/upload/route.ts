@@ -62,19 +62,18 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({
-      success: true,
       url: result.secure_url,
       publicId: result.public_id,
     });
   } catch (error) {
-    console.error("Gist Cloudinary upload error:", error);
+    console.error("Gist image upload failed:", error);
 
     return NextResponse.json(
       {
         error:
           error instanceof Error
             ? error.message
-            : "Image upload failed.",
+            : String(error),
       },
       { status: 500 }
     );

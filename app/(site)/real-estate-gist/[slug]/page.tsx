@@ -12,31 +12,118 @@ import {
   Share2,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import {
+  collection,
+  getDocs,
+  query,
+  updateDoc,
+  where,
+  doc,
+} from "firebase/firestore";
 
-import { getGistBySlug } from "@/lib/gist-data";
+import { db } from "@/lib/firebase";
+
+type Gist = {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  content: string[];
+  image: string;
+  author: string;
+  publishedAt: string;
+  views: number;
+  likes: number;
+  comments: number;
+  category: string;
+};
 
 type Props = {
   params: Promise<{ slug: string }>;
 };
 
 export default function GistArticlePage({ params }: Props) {
-  const [gist, setGist] = useState<ReturnType<typeof getGistBySlug>>(undefined);
+  const [gist, setGist] = useState<Gist | null>(null);
+  const [loading, setLoading] = useState(true);
   const [liked, setLiked] = useState(false);
   const [comment, setComment] = useState("");
 
   useEffect(() => {
     let active = true;
 
-    params.then(({ slug }) => {
-      if (active) {
-        setGist(getGistBySlug(slug));
+    async function loadGist() {
+      try {
+        const { slug } = await params;
+
+        const gistQuery = query(
+          collection(db, "gists"),
+          where("slug", "==", slug)
+        );
+
+        const snapshot = await getDocs(gistQuery);
+
+        if (!snapshot.empty && active) {
+          const item = snapshot.docs[0];
+
+          setGist({
+            id: item.id,
+            ...item.data(),
+          } as Gist);
+        }
+      } catch (error) {
+        console.error("Failed to load gist:", error);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
-    });
+    }
+
+    loadGist();
 
     return () => {
       active = false;
     };
   }, [params]);
+
+  useEffect(() => {
+    if (!gist) return;
+
+    const storageKey = `sayola-gist-viewed-${gist.id}`;
+
+    if (sessionStorage.getItem(storageKey)) {
+      return;
+    }
+
+    sessionStorage.setItem(storageKey, "true");
+
+    const newViews = (gist.views || 0) + 1;
+
+    updateDoc(doc(db, "gists", currentGist.id), {
+      views: newViews,
+    })
+      .then(() => {
+        setGist((current) =>
+          current
+            ? {
+                ...current,
+                views: newViews,
+              }
+            : current
+        );
+      })
+      .catch((error) => {
+        console.error("Failed to update views:", error);
+      });
+  }, [gist?.id]);
+
+  if (loading) {
+    return (
+      <main className="container-site py-24">
+        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#FF6B00]" />
+      </main>
+    );
+  }
 
   if (!gist) {
     return (
@@ -56,22 +143,91 @@ export default function GistArticlePage({ params }: Props) {
     );
   }
 
-  const handleLike = () => {
-    setLiked((value) => !value);
-  };
+  const currentGist = gist;
 
-  const handleShare = async () => {
-    if (typeof navigator !== "undefined" && navigator.share) {
-      await navigator.share({
-        title: gist.title,
-        text: gist.excerpt,
-        url: window.location.href,
+  async function handleLike() {
+    if (liked) return;
+
+    setLiked(true);
+
+    const newLikes = (currentGist.likes || 0) + 1;
+
+    try {
+      await updateDoc(doc(db, "gists", currentGist.id), {
+        likes: newLikes,
       });
-    } else if (typeof navigator !== "undefined") {
-      await navigator.clipboard?.writeText(window.location.href);
-      alert("Article link copied.");
+
+      setGist((current) =>
+        current
+          ? {
+              ...current,
+              likes: newLikes,
+            }
+          : current
+      );
+    } catch (error) {
+      console.error("Failed to update likes:", error);
+      setLiked(false);
     }
-  };
+  }
+
+  async function handleShare() {
+    try {
+      if (
+        typeof navigator !== "undefined" &&
+        navigator.share
+      ) {
+        await navigator.share({
+          title: currentGist.title,
+          text: currentGist.excerpt,
+          url: window.location.href,
+        });
+      } else if (
+        typeof navigator !== "undefined" &&
+        navigator.clipboard
+      ) {
+        await navigator.clipboard.writeText(
+          window.location.href
+        );
+
+        alert("Article link copied.");
+      }
+    } catch (error) {
+      console.error("Share cancelled or failed:", error);
+    }
+  }
+
+  async function handleComment(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    if (!comment.trim()) return;
+
+    const newComments = (currentGist.comments || 0) + 1;
+
+    try {
+      await updateDoc(doc(db, "gists", currentGist.id), {
+        comments: newComments,
+      });
+
+      setGist((current) =>
+        current
+          ? {
+              ...current,
+              comments: newComments,
+            }
+          : current
+      );
+
+      setComment("");
+
+      alert("Comment submitted successfully.");
+    } catch (error) {
+      console.error("Failed to submit comment:", error);
+      alert("Could not submit comment.");
+    }
+  }
 
   return (
     <main className="bg-[#F4F6F9]">
@@ -118,7 +274,7 @@ export default function GistArticlePage({ params }: Props) {
           <div className="mt-6 flex flex-wrap items-center gap-3 border-b border-slate-200 pb-6">
             <span className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-600">
               <Eye size={17} />
-              {gist.views} views
+              {gist.views || 0} views
             </span>
 
             <button
@@ -130,13 +286,16 @@ export default function GistArticlePage({ params }: Props) {
                   : "bg-white text-slate-600 hover:text-[#FF6B00]"
               }`}
             >
-              <Heart size={17} fill={liked ? "currentColor" : "none"} />
-              {gist.likes + (liked ? 1 : 0)} likes
+              <Heart
+                size={17}
+                fill={liked ? "currentColor" : "none"}
+              />
+              {gist.likes || 0} likes
             </button>
 
             <span className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-600">
               <MessageCircle size={17} />
-              {gist.comments} comments
+              {gist.comments || 0} comments
             </span>
 
             <button
@@ -163,27 +322,26 @@ export default function GistArticlePage({ params }: Props) {
           <section className="mt-14 rounded-3xl bg-white p-6 shadow-sm sm:p-8">
             <div className="flex items-center gap-3">
               <MessageCircle className="text-[#FF6B00]" />
+
               <h2 className="text-2xl font-extrabold text-[#0A2342]">
                 Join the Conversation
               </h2>
             </div>
 
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Share your thoughts, questions or experience about this topic.
+              Share your thoughts, questions or experience about
+              this topic.
             </p>
 
             <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!comment.trim()) return;
-                alert("Comment submitted. Firebase will handle this when connected.");
-                setComment("");
-              }}
+              onSubmit={handleComment}
               className="mt-6"
             >
               <textarea
                 value={comment}
-                onChange={(event) => setComment(event.target.value)}
+                onChange={(event) =>
+                  setComment(event.target.value)
+                }
                 placeholder="Write your comment..."
                 rows={5}
                 className="w-full rounded-2xl border border-slate-200 bg-[#F4F6F9] p-4 text-sm outline-none transition focus:border-[#FF6B00] focus:ring-2 focus:ring-orange-500/10"

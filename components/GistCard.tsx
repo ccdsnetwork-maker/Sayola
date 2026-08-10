@@ -2,17 +2,36 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Eye, Heart, MessageCircle } from "lucide-react";
+import {
+  ArrowRight,
+  Eye,
+  Heart,
+  MessageCircle,
+} from "lucide-react";
 import { motion } from "framer-motion";
 
-import type { Gist } from "@/lib/gist-data";
+type Gist = {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  image: string;
+  publishedAt: string;
+  views: number;
+  likes: number;
+  comments: number;
+  category: string;
+};
 
 type GistCardProps = {
   gist: Gist;
   index?: number;
 };
 
-export default function GistCard({ gist, index = 0 }: GistCardProps) {
+export default function GistCard({
+  gist,
+  index = 0,
+}: GistCardProps) {
   return (
     <motion.article
       initial={{ opacity: 0, y: 30 }}
@@ -56,17 +75,17 @@ export default function GistCard({ gist, index = 0 }: GistCardProps) {
           <div className="flex items-center gap-4 text-xs font-semibold text-slate-500">
             <span className="flex items-center gap-1">
               <Eye size={15} />
-              {gist.views}
+              {gist.views || 0}
             </span>
 
             <span className="flex items-center gap-1">
               <Heart size={15} />
-              {gist.likes}
+              {gist.likes || 0}
             </span>
 
             <span className="flex items-center gap-1">
               <MessageCircle size={15} />
-              {gist.comments}
+              {gist.comments || 0}
             </span>
           </div>
 

@@ -27,15 +27,10 @@ export async function POST(request: Request) {
       success: true,
     });
   } catch (error) {
-    console.error("Gist Cloudinary delete error:", error);
+    console.error("Gist image delete failed:", error);
 
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Image deletion failed.",
-      },
+      { error: "Failed to delete gist image." },
       { status: 500 }
     );
   }
