@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
@@ -8,12 +9,12 @@ import {
   Mail,
   Users,
 } from "lucide-react";
-import Link from "next/link";
 import {
   collection,
   onSnapshot,
   orderBy,
   query,
+  where,
 } from "firebase/firestore";
 
 import { Reveal } from "@/components/Motion";
@@ -39,18 +40,17 @@ export default function TeamPage() {
   useEffect(() => {
     const membersQuery = query(
       collection(db, "team"),
+      where("active", "==", true),
       orderBy("order", "asc")
     );
 
     const unsubscribe = onSnapshot(
       membersQuery,
       (snapshot) => {
-        const members = snapshot.docs
-          .map((item) => ({
-            id: item.id,
-            ...(item.data() as Omit<TeamMember, "id">),
-          }))
-          .filter((member) => member.active !== false);
+        const members = snapshot.docs.map((item) => ({
+          id: item.id,
+          ...item.data(),
+        })) as TeamMember[];
 
         setTeamMembers(members);
         setLoading(false);
@@ -81,10 +81,7 @@ export default function TeamPage() {
           <Reveal delay={0.1}>
             <h1 className="mt-5 max-w-4xl text-4xl font-extrabold leading-tight text-white sm:text-5xl lg:text-6xl">
               Meet Our Board of
-              <span className="text-[#FF6B00]">
-                {" "}
-                Directors.
-              </span>
+              <span className="text-[#FF6B00]"> Directors.</span>
             </h1>
           </Reveal>
 
@@ -119,36 +116,31 @@ export default function TeamPage() {
           </Reveal>
 
           {loading ? (
-            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {[1, 2, 3, 4].map((item) => (
-                <div
-                  key={item}
-                  className="overflow-hidden rounded-2xl bg-white shadow-sm"
-                >
-                  <div className="aspect-square animate-pulse bg-slate-200" />
+            <div className="mt-12 flex min-h-[300px] items-center justify-center">
+              <div className="text-center">
+                <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#FF6B00]" />
 
-                  <div className="space-y-3 p-6">
-                    <div className="h-6 animate-pulse rounded bg-slate-200" />
-                    <div className="h-4 w-2/3 animate-pulse rounded bg-slate-200" />
-                    <div className="h-16 animate-pulse rounded bg-slate-100" />
-                  </div>
-                </div>
-              ))}
+                <p className="mt-4 text-sm font-semibold text-slate-500">
+                  Loading our team...
+                </p>
+              </div>
             </div>
           ) : teamMembers.length === 0 ? (
-            <div className="mt-12 rounded-2xl bg-white p-10 text-center shadow-sm">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#0A2342]">
-                <Users size={28} className="text-[#FF6B00]" />
+            <div className="mt-12 flex min-h-[260px] items-center justify-center rounded-2xl bg-white px-6 text-center shadow-sm">
+              <div>
+                <Users
+                  size={42}
+                  className="mx-auto text-[#FF6B00]"
+                />
+
+                <h3 className="mt-4 text-xl font-extrabold text-[#0A2342]">
+                  Our leadership team
+                </h3>
+
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Team information will be available here soon.
+                </p>
               </div>
-
-              <h3 className="mt-5 text-xl font-extrabold text-[#0A2342]">
-                Our team is being updated
-              </h3>
-
-              <p className="mt-2 text-sm leading-7 text-slate-500">
-                Please check back shortly to meet the SAYOLA KAYBEE
-                leadership team.
-              </p>
             </div>
           ) : (
             <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -167,7 +159,7 @@ export default function TeamPage() {
                       {member.image ? (
                         <Image
                           src={member.image}
-                          alt={member.name || "SAYOLA team member"}
+                          alt={member.name || "Team member"}
                           fill
                           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                           className="object-cover transition duration-500 group-hover:scale-105"
@@ -175,8 +167,8 @@ export default function TeamPage() {
                       ) : (
                         <div className="flex h-full w-full items-center justify-center">
                           <Users
-                            size={60}
-                            className="text-white/30"
+                            size={56}
+                            className="text-white/40"
                           />
                         </div>
                       )}
@@ -216,15 +208,15 @@ export default function TeamPage() {
                     {/* CONTENT */}
                     <div className="p-6">
                       <h3 className="text-xl font-extrabold text-[#0A2342]">
-                        {member.name || "Unnamed team member"}
+                        {member.name || "Team Member"}
                       </h3>
 
                       <p className="mt-1 text-sm font-bold text-[#FF6B00]">
-                        {member.position || "Position not specified"}
+                        {member.position || "Team Member"}
                       </p>
 
                       <p className="mt-4 text-sm leading-7 text-slate-500">
-                        {member.bio || "Biography available on request."}
+                        {member.bio || "Professional team member at SAYOLA KAYBEE GLOBAL LIMITED."}
                       </p>
                     </div>
                   </motion.article>

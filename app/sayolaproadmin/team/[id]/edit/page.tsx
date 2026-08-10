@@ -8,26 +8,68 @@ import {
   Save,
   Upload,
 } from "lucide-react";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { useRouter } from "next/navigation";
+import {
+  doc,
+  getDoc,
+  serverTimestamp,
+  updateDoc,
+} from "firebase/firestore";
+import { useParams, useRouter } from "next/navigation";
 
 import { db } from "@/lib/firebase";
 
-export default function NewTeamMemberPage() {
-  const router = useRouter();
+type TeamMember = {
+  id: string;
+  name?: string;
+  position?: string;
+  bio?: string;
+  email?: string;
+  linkedin?: string;
+  image?: string;
+  imagePublicId?: string;
+  order?: number;
+  active?: boolean;
+};
 
+export default function EditTeamMemberPage() {
+  const params = useParams();
+  const router = useRouter();
+  const id = String(params.id);
+
+  const [member, setMember] = useState<TeamMember | null>(null);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
-  const [uploadProgress, setUploadProgress] = useState(false);
 
   useEffect(() => {
-    return () => {
-      if (preview.startsWith("blob:")) {
-        URL.revokeObjectURL(preview);
+    async function loadMember() {
+      try {
+        const snapshot = await getDoc(doc(db, "team", id));
+
+        if (!snapshot.exists()) {
+          setMember(null);
+          return;
+        }
+
+        const data = snapshot.data() as Omit<TeamMember, "id">;
+
+        setMember({
+          id: snapshot.id,
+          ...data,
+        });
+
+        setPreview(data.image || "");
+      } catch (error) {
+        console.error("Failed to load team member:", error);
+        setMember(null);
+      } finally {
+        setLoading(false);
       }
-    };
-  }, [preview]);
+    }
+
+    loadMember();
+  }, [id]);
 
   function handleImageChange(
     event: React.ChangeEvent<HTMLInputElement>
@@ -71,8 +113,26 @@ export default function NewTeamMemberPage() {
     };
   }
 
+  async function deleteOldImage(publicId?: string) {
+    if (!publicId) return;
+
+    try {
+      await fetch("/api/cloudinary/team/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ publicId }),
+      });
+    } catch (error) {
+      console.error("Failed to delete old team image:", error);
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!member) return;
 
     const form = event.currentTarget;
     const formData = new FormData(form);
@@ -90,48 +150,89 @@ export default function NewTeamMemberPage() {
       return;
     }
 
-    if (!imageFile) {
-      alert("Please select a team member image.");
-      return;
-    }
-
     setSaving(true);
 
     try {
-      setUploadProgress(true);
+      let image = member.image || "";
+      let imagePublicId = member.imagePublicId || "";
 
-      const uploaded = await uploadImage(imageFile);
+      if (imageFile) {
+        const uploaded = await uploadImage(imageFile);
 
-      setUploadProgress(false);
+        image = uploaded.url;
+        imagePublicId = uploaded.publicId;
+      }
 
-      await addDoc(collection(db, "team"), {
+      await updateDoc(doc(db, "team", id), {
         name,
         position,
         bio,
         email,
         linkedin,
-        image: uploaded.url,
-        imagePublicId: uploaded.publicId,
+        image,
+        imagePublicId,
         order: Number.isFinite(order) ? order : 0,
         active,
-        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
-      alert("Team member added successfully.");
+      if (
+        imageFile &&
+        member.imagePublicId &&
+        member.imagePublicId !== imagePublicId
+      ) {
+        await deleteOldImage(member.imagePublicId);
+      }
+
+      alert("Team member updated successfully.");
       router.push("/sayolaproadmin/team");
     } catch (error) {
-      console.error("Failed to create team member:", error);
+      console.error("Failed to update team member:", error);
 
       alert(
         error instanceof Error
           ? error.message
-          : "Could not add team member."
+          : "Could not update team member."
       );
     } finally {
       setSaving(false);
-      setUploadProgress(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#F4F6F9]">
+        <div className="text-center">
+          <Loader2
+            size={38}
+            className="mx-auto animate-spin text-[#FF6B00]"
+          />
+          <p className="mt-4 text-sm font-semibold text-slate-500">
+            Loading team member...
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!member) {
+    return (
+      <main className="min-h-screen bg-[#F4F6F9]">
+        <div className="container-site py-20 text-center">
+          <UserNotFound />
+          <h1 className="mt-5 text-2xl font-extrabold text-[#0A2342]">
+            Team member not found
+          </h1>
+          <button
+            type="button"
+            onClick={() => router.push("/sayolaproadmin/team")}
+            className="mt-6 rounded-xl bg-[#0A2342] px-6 py-3 font-bold text-white hover:bg-[#FF6B00]"
+          >
+            Back to Team
+          </button>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -152,12 +253,8 @@ export default function NewTeamMemberPage() {
           </p>
 
           <h1 className="mt-2 text-3xl font-extrabold text-[#0A2342]">
-            Add Team Member
+            Edit Team Member
           </h1>
-
-          <p className="mt-3 text-slate-500">
-            Add a leadership or team profile to the website.
-          </p>
         </div>
 
         <form
@@ -173,9 +270,9 @@ export default function NewTeamMemberPage() {
               <input
                 name="name"
                 required
-                placeholder="e.g. John Doe"
+                defaultValue={member.name || ""}
                 disabled={saving}
-                className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#FF6B00] disabled:bg-slate-50"
+                className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#FF6B00]"
               />
             </div>
 
@@ -187,9 +284,9 @@ export default function NewTeamMemberPage() {
               <input
                 name="position"
                 required
-                placeholder="e.g. Managing Director"
+                defaultValue={member.position || ""}
                 disabled={saving}
-                className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#FF6B00] disabled:bg-slate-50"
+                className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#FF6B00]"
               />
             </div>
 
@@ -202,9 +299,9 @@ export default function NewTeamMemberPage() {
                 name="bio"
                 rows={5}
                 required
-                placeholder="Write a short professional biography..."
+                defaultValue={member.bio || ""}
                 disabled={saving}
-                className="mt-2 w-full resize-none rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#FF6B00] disabled:bg-slate-50"
+                className="mt-2 w-full resize-none rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#FF6B00]"
               />
             </div>
 
@@ -216,9 +313,9 @@ export default function NewTeamMemberPage() {
               <input
                 name="email"
                 type="email"
-                placeholder="name@example.com"
+                defaultValue={member.email || ""}
                 disabled={saving}
-                className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#FF6B00] disabled:bg-slate-50"
+                className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#FF6B00]"
               />
             </div>
 
@@ -230,9 +327,9 @@ export default function NewTeamMemberPage() {
               <input
                 name="linkedin"
                 type="url"
-                placeholder="https://linkedin.com/in/..."
+                defaultValue={member.linkedin || ""}
                 disabled={saving}
-                className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#FF6B00] disabled:bg-slate-50"
+                className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#FF6B00]"
               />
             </div>
 
@@ -245,9 +342,9 @@ export default function NewTeamMemberPage() {
                 name="order"
                 type="number"
                 min="0"
-                defaultValue="0"
+                defaultValue={member.order ?? 0}
                 disabled={saving}
-                className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#FF6B00] disabled:bg-slate-50"
+                className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#FF6B00]"
               />
             </div>
 
@@ -256,7 +353,7 @@ export default function NewTeamMemberPage() {
                 <input
                   name="active"
                   type="checkbox"
-                  defaultChecked
+                  defaultChecked={member.active !== false}
                   disabled={saving}
                   className="h-4 w-4 accent-[#FF6B00]"
                 />
@@ -270,21 +367,21 @@ export default function NewTeamMemberPage() {
 
           <div className="mt-6 rounded-2xl border border-dashed border-slate-300 p-5">
             <p className="text-sm font-bold text-[#0A2342]">
-              Profile Image *
+              Profile Image
             </p>
 
             <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center">
-              <div className="relative flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#0A2342]">
+              <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-2xl bg-[#0A2342]">
                 {preview ? (
                   <img
                     src={preview}
-                    alt="Team member preview"
+                    alt={member.name || "Team member"}
                     className="h-full w-full object-cover"
                   />
                 ) : (
                   <ImagePlus
                     size={38}
-                    className="text-white/50"
+                    className="absolute inset-0 m-auto text-white/50"
                   />
                 )}
               </div>
@@ -292,7 +389,7 @@ export default function NewTeamMemberPage() {
               <div>
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#0A2342] px-5 py-3 font-bold text-white hover:bg-[#FF6B00]">
                   <Upload size={17} />
-                  Choose Image
+                  Replace Image
 
                   <input
                     type="file"
@@ -304,14 +401,8 @@ export default function NewTeamMemberPage() {
                 </label>
 
                 <p className="mt-3 text-xs text-slate-400">
-                  JPG, PNG or WebP. Maximum 10MB.
+                  Leave unchanged to keep the current image.
                 </p>
-
-                {imageFile && (
-                  <p className="mt-2 text-sm font-semibold text-slate-600">
-                    {imageFile.name}
-                  </p>
-                )}
               </div>
             </div>
           </div>
@@ -327,14 +418,18 @@ export default function NewTeamMemberPage() {
               <Save size={19} />
             )}
 
-            {uploadProgress
-              ? "Uploading image..."
-              : saving
-                ? "Saving..."
-                : "Save Team Member"}
+            {saving ? "Saving..." : "Save Changes"}
           </button>
         </form>
       </div>
     </main>
+  );
+}
+
+function UserNotFound() {
+  return (
+    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-orange-50 text-[#FF6B00]">
+      <ImagePlus size={30} />
+    </div>
   );
 }
