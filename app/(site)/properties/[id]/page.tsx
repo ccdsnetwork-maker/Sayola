@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
@@ -19,47 +21,27 @@ import {
   Square,
 } from "lucide-react";
 import { motion } from "framer-motion";
-
-import { featuredProperties } from "@/lib/home-data";
+import { addDoc, collection, doc, getDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { Reveal } from "@/components/Motion";
 
-const extraProperties = [
-  {
-    id: "sayola-land-1",
-    title: "Premium Residential Land",
-    location: "Moniya, Ibadan",
-    price: "₦25,000,000",
-    type: "For Sale",
-    category: "Land",
-    image:
-      "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1400&q=85",
-  },
-  {
-    id: "sayola-apartment-1",
-    title: "Executive City Apartment",
-    location: "Victoria Island, Lagos",
-    price: "₦12,000,000 / year",
-    type: "For Rent",
-    category: "Apartment",
-    image:
-      "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1400&q=85",
-  },
-  {
-    id: "sayola-commercial-1",
-    title: "Modern Commercial Space",
-    location: "Ring Road, Ibadan",
-    price: "₦95,000,000",
-    type: "For Sale",
-    category: "Commercial",
-    image:
-      "https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=1400&q=85",
-  },
-];
-
-const allProperties = [
-  ...featuredProperties,
-  ...extraProperties,
-];
+type Property = {
+  id: string;
+  title?: string;
+  location?: string;
+  price?: string;
+  type?: string;
+  category?: string;
+  description?: string;
+  size?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  features?: string[];
+  image?: string;
+  gallery?: string[];
+  featured?: boolean;
+  available?: boolean;
+};
 
 const features = [
   "Verified property opportunity",
@@ -70,11 +52,119 @@ const features = [
 
 export default function PropertyDetailsPage() {
   const params = useParams();
-  const id = params.id as string;
+  const router = useRouter();
+  const id = String(params.id);
 
-  const property = allProperties.find(
-    (item) => item.id === id
-  );
+  const [property, setProperty] = useState<Property | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sendingEnquiry, setSendingEnquiry] = useState(false);
+  const [enquirySent, setEnquirySent] = useState(false);
+
+  useEffect(() => {
+    async function loadProperty() {
+      try {
+        const snapshot = await getDoc(doc(db, "properties", id));
+
+        if (!snapshot.exists()) {
+          setProperty(null);
+          return;
+        }
+
+        setProperty({
+          id: snapshot.id,
+          ...(snapshot.data() as Omit<Property, "id">),
+        });
+      } catch (error) {
+        console.error("Failed to load property:", error);
+        setProperty(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadProperty();
+  }, [id]);
+
+  async function handleEnquirySubmit(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+
+    const name = String(formData.get("name") || "").trim();
+    const phone = String(formData.get("phone") || "").trim();
+    const email = String(formData.get("email") || "").trim();
+    const message = String(formData.get("message") || "").trim();
+
+    if (!name || !phone || !email || !message) {
+      alert("Please complete all fields before submitting your enquiry.");
+      return;
+    }
+
+    setSendingEnquiry(true);
+
+    try {
+      const propertyId = property?.id || "";
+      const propertyTitle = property?.title || "Property";
+      const propertyLocation = property?.location || "Location unavailable";
+      const propertyPrice = property?.price || "Price on request";
+
+      await addDoc(collection(db, "messages"), {
+        name,
+        phone,
+        email,
+        service: "Property Enquiry",
+        subject: `Property Enquiry: ${propertyTitle}`,
+        message: `Property ID: ${propertyId}
+
+Property: ${propertyTitle}
+Location: ${propertyLocation}
+Price: ${propertyPrice}
+
+Customer message:
+${message}`,
+        propertyId,
+        propertyTitle,
+        propertyLocation,
+        propertyPrice,
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+
+      form.reset();
+      setEnquirySent(true);
+    } catch (error) {
+      console.error("PROPERTY ENQUIRY: Firestore write failed:", error);
+
+      const firebaseError = error as {
+        code?: string;
+        message?: string;
+      };
+
+      alert(
+        `Your enquiry could not be sent.\n\n${
+          firebaseError.message || "Please try again."
+        }`
+      );
+    } finally {
+      setSendingEnquiry(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <main className="flex min-h-[70vh] items-center justify-center bg-[#F4F6F9]">
+        <div className="text-center">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#FF6B00]" />
+          <p className="mt-4 text-sm font-semibold text-slate-500">
+            Loading property...
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   if (!property) {
     return (
@@ -95,24 +185,28 @@ export default function PropertyDetailsPage() {
               or is no longer available.
             </p>
 
-            <Link
-              href="/properties"
+            <button
+              type="button"
+              onClick={() => router.push("/properties")}
               className="mt-7 inline-flex items-center gap-2 rounded-xl bg-[#0A2342] px-6 py-4 font-bold text-white transition hover:bg-[#FF6B00]"
             >
               <ArrowLeft size={18} />
               Back to Properties
-            </Link>
+            </button>
           </div>
         </div>
       </main>
     );
   }
 
-  const gallery = [
-    property.image,
-    "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1200&q=85",
-    "https://images.unsplash.com/photo-1600607688969-a5bfcd646154?auto=format&fit=crop&w=1200&q=85",
-  ];
+  const gallery =
+    property.gallery && property.gallery.length > 0
+      ? property.gallery
+      : property.image
+        ? [property.image]
+        : [];
+
+
 
   return (
     <main>
@@ -156,8 +250,8 @@ export default function PropertyDetailsPage() {
             <div className="grid gap-3 overflow-hidden rounded-2xl sm:grid-cols-[1.5fr_0.75fr]">
               <div className="relative min-h-[330px] sm:min-h-[520px]">
                 <Image
-                  src={gallery[0]}
-                  alt={property.title}
+                  src={gallery[0] || "/images/sayola.png"}
+                  alt={property.title || "Property"}
                   fill
                   priority
                   sizes="(max-width: 640px) 100vw, 65vw"
@@ -168,7 +262,7 @@ export default function PropertyDetailsPage() {
               <div className="hidden gap-3 sm:grid">
                 <div className="relative">
                   <Image
-                    src={gallery[1]}
+                    src={gallery[1] || gallery[0] || "/images/sayola.png"}
                     alt={`${property.title} interior`}
                     fill
                     sizes="35vw"
@@ -178,7 +272,7 @@ export default function PropertyDetailsPage() {
 
                 <div className="relative">
                   <Image
-                    src={gallery[2]}
+                    src={gallery[2] || gallery[0] || "/images/sayola.png"}
                     alt={`${property.title} additional view`}
                     fill
                     sizes="35vw"
@@ -249,7 +343,7 @@ export default function PropertyDetailsPage() {
                         Bedrooms
                       </p>
                       <p className="mt-1 font-bold text-[#0A2342]">
-                        4
+                        {property.bedrooms ?? 0}
                       </p>
                     </div>
 
@@ -262,7 +356,7 @@ export default function PropertyDetailsPage() {
                         Bathrooms
                       </p>
                       <p className="mt-1 font-bold text-[#0A2342]">
-                        4
+                        {property.bathrooms ?? 0}
                       </p>
                     </div>
 
@@ -275,7 +369,7 @@ export default function PropertyDetailsPage() {
                         Size
                       </p>
                       <p className="mt-1 font-bold text-[#0A2342]">
-                        450 sqm
+                        {property.size || "Not specified"}
                       </p>
                     </div>
                   </div>
@@ -285,19 +379,8 @@ export default function PropertyDetailsPage() {
                       Property Description
                     </h2>
 
-                    <p className="mt-4 leading-8 text-slate-600">
-                      This premium property presents an excellent
-                      opportunity for individuals, families and
-                      investors looking for quality real estate in
-                      a strategic location.
-                    </p>
-
-                    <p className="mt-4 leading-8 text-slate-600">
-                      The property combines practical design,
-                      accessibility and long-term investment
-                      potential. Our team is available to provide
-                      further information, documentation and
-                      inspection arrangements.
+                    <p className="mt-4 whitespace-pre-line leading-8 text-slate-600">
+                      {property.description || "Property description available on request."}
                     </p>
                   </div>
 
@@ -307,7 +390,7 @@ export default function PropertyDetailsPage() {
                     </h2>
 
                     <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                      {features.map((feature) => (
+                      {(property.features && property.features.length > 0 ? property.features : features).map((feature) => (
                         <div
                           key={feature}
                           className="flex items-center gap-3 rounded-xl bg-[#F4F6F9] p-4"
@@ -368,39 +451,97 @@ export default function PropertyDetailsPage() {
                     or schedule an inspection.
                   </p>
 
-                  <form className="mt-6 space-y-4">
-                    <input
-                      type="text"
-                      placeholder="Your name"
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-[#FF6B00]"
-                    />
+                  {enquirySent ? (
+                    <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-6 text-center">
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
+                        <CheckCircle2
+                          size={30}
+                          className="text-green-600"
+                        />
+                      </div>
 
-                    <input
-                      type="tel"
-                      placeholder="Phone number"
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-[#FF6B00]"
-                    />
+                      <h3 className="mt-4 text-xl font-extrabold text-[#0A2342]">
+                        Message sent successfully
+                      </h3>
 
-                    <input
-                      type="email"
-                      placeholder="Email address"
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-[#FF6B00]"
-                    />
+                      <p className="mt-2 text-sm leading-6 text-slate-600">
+                        Thank you for your interest in this property.
+                        Our team has received your enquiry and will
+                        contact you shortly.
+                      </p>
 
-                    <textarea
-                      rows={4}
-                      defaultValue={`I am interested in ${property.title}.`}
-                      className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-[#FF6B00]"
-                    />
+                      <div className="mt-4 rounded-xl bg-white px-4 py-3 text-left">
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                          Property ID
+                        </p>
+                        <p className="mt-1 break-all font-mono text-sm font-bold text-[#0A2342]">
+                          {property.id}
+                        </p>
+                      </div>
 
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF6B00] px-5 py-4 font-bold text-white transition hover:bg-[#e85f00]"
+                      <button
+                        type="button"
+                        onClick={() => setEnquirySent(false)}
+                        className="mt-5 inline-flex items-center justify-center rounded-xl border border-[#0A2342] px-5 py-3 text-sm font-bold text-[#0A2342] transition hover:bg-[#0A2342] hover:text-white"
+                      >
+                        Send another enquiry
+                      </button>
+                    </div>
+                  ) : (
+                    <form
+                      onSubmit={handleEnquirySubmit}
+                      className="mt-6 space-y-4"
                     >
-                      Enquire Now
-                      <ArrowRight size={18} />
-                    </button>
-                  </form>
+                      <input
+                        type="text"
+                        name="name"
+                        placeholder="Your name"
+                        required
+                        disabled={sendingEnquiry}
+                        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-[#FF6B00] disabled:cursor-not-allowed disabled:bg-slate-50"
+                      />
+
+                      <input
+                        type="tel"
+                        name="phone"
+                        placeholder="Phone number"
+                        required
+                        disabled={sendingEnquiry}
+                        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-[#FF6B00] disabled:cursor-not-allowed disabled:bg-slate-50"
+                      />
+
+                      <input
+                        type="email"
+                        name="email"
+                        placeholder="Email address"
+                        required
+                        disabled={sendingEnquiry}
+                        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-[#FF6B00] disabled:cursor-not-allowed disabled:bg-slate-50"
+                      />
+
+                      <textarea
+                        name="message"
+                        rows={4}
+                        defaultValue={`I am interested in ${property.title || "this property"}.`}
+                        required
+                        disabled={sendingEnquiry}
+                        className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-[#FF6B00] disabled:cursor-not-allowed disabled:bg-slate-50"
+                      />
+
+                      <button
+                        type="submit"
+                        disabled={sendingEnquiry}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF6B00] px-5 py-4 font-bold text-white transition hover:bg-[#e85f00] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {sendingEnquiry ? "Sending..." : "Enquire Now"}
+                        {sendingEnquiry ? (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                        ) : (
+                          <ArrowRight size={18} />
+                        )}
+                      </button>
+                    </form>
+                  )}
 
                   <div className="mt-6 space-y-3 border-t border-slate-100 pt-6">
                     <a
