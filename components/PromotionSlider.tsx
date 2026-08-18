@@ -52,16 +52,6 @@ export default function PromotionSlider() {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (promotions.length <= 1) return;
-
-    const timer = window.setInterval(() => {
-      setCurrent((index) => (index + 1) % promotions.length);
-    }, 7000);
-
-    return () => window.clearInterval(timer);
-  }, [promotions.length]);
-
   if (loading) {
     return (
       <section className="bg-[#F4F6F9] py-16">
