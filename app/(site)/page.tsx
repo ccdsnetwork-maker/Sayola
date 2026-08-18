@@ -89,7 +89,23 @@ type Property = {
 
 export default function Home() {
   const [featuredProperties, setFeaturedProperties] =
-    useState<any[]>([]);
+    useState<Property[]>([]);
+  const [featuredPage, setFeaturedPage] = useState(1);
+
+  const FEATURED_PER_PAGE = 6;
+
+  const featuredTotalPages = Math.max(
+    1,
+    Math.ceil(featuredProperties.length / FEATURED_PER_PAGE)
+  );
+
+  const featuredStartIndex =
+    (featuredPage - 1) * FEATURED_PER_PAGE;
+
+  const visibleFeaturedProperties = featuredProperties.slice(
+    featuredStartIndex,
+    featuredStartIndex + FEATURED_PER_PAGE
+  );
 
   useEffect(() => {
     async function loadFeaturedProperties() {
@@ -107,8 +123,7 @@ export default function Home() {
             (property: any) =>
               property.featured === true &&
               property.available !== false
-          )
-          .slice(0, 3);
+          );
 
         setFeaturedProperties(data);
       } catch (error) {
@@ -481,15 +496,93 @@ export default function Home() {
             </Link>
           </Reveal>
 
-          <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {featuredProperties.map((property, index) => (
-              <PropertyCard
-                key={property.id}
-                property={property}
-                index={index}
-              />
-            ))}
+          {/* PROPERTY COUNT */}
+          <div className="mt-10 flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-500">
+              {featuredProperties.length}{" "}
+              {featuredProperties.length === 1 ? "property" : "properties"} available
+            </p>
+
+            {featuredProperties.length > 0 && (
+              <p className="text-sm font-medium text-slate-400">
+                Showing {featuredStartIndex + 1}-
+                {Math.min(
+                  featuredStartIndex + FEATURED_PER_PAGE,
+                  featuredProperties.length
+                )}{" "}
+                of {featuredProperties.length}
+              </p>
+            )}
           </div>
+
+          {/* PROPERTY CARDS */}
+          {featuredProperties.length > 0 ? (
+            <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleFeaturedProperties.map((property, index) => (
+                <PropertyCard
+                  key={property.id}
+                  property={property}
+                  index={index}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-10 text-center">
+              <p className="font-semibold text-[#0A2342]">
+                No featured properties available at the moment.
+              </p>
+              <p className="mt-2 text-sm text-slate-500">
+                Please check back soon for new listings.
+              </p>
+            </div>
+          )}
+
+          {/* PAGINATION */}
+          {featuredTotalPages > 1 && (
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setFeaturedPage((page) => Math.max(1, page - 1))
+                }
+                disabled={featuredPage === 1}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-[#0A2342] transition hover:border-[#FF6B00] hover:text-[#FF6B00] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Previous
+              </button>
+
+              {Array.from(
+                { length: featuredTotalPages },
+                (_, index) => index + 1
+              ).map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => setFeaturedPage(page)}
+                  className={`h-10 min-w-10 rounded-lg px-3 text-sm font-bold transition ${
+                    featuredPage === page
+                      ? "bg-[#FF6B00] text-white"
+                      : "border border-slate-200 text-[#0A2342] hover:border-[#FF6B00] hover:text-[#FF6B00]"
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                type="button"
+                onClick={() =>
+                  setFeaturedPage((page) =>
+                    Math.min(featuredTotalPages, page + 1)
+                  )
+                }
+                disabled={featuredPage === featuredTotalPages}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-[#0A2342] transition hover:border-[#FF6B00] hover:text-[#FF6B00] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
