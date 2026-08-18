@@ -20,6 +20,7 @@ import {
 import { motion } from "framer-motion";
 
 import PropertyCard from "@/components/PropertyCard";
+import PromotionSlider from "@/components/PromotionSlider";
 import { Reveal } from "@/components/Motion";
 import {
   stats,
@@ -472,6 +473,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* PROMOTIONS */}
+      <PromotionSlider />
 
       {/* FEATURED PROPERTIES */}
       <section className="bg-white py-24">

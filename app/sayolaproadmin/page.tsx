@@ -6,6 +6,7 @@ import {
   MessageSquare,
   Users,
   Plus,
+  Film,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -27,18 +28,21 @@ export default function SayolaProAdminPage() {
 
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500">
             Manage website properties, team members, Real Estate Gist
-            articles and messages received from visitors.
+            articles, promotional videos and messages received from visitors.
           </p>
         </div>
 
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {/* DASHBOARD CARDS */}
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
 
           <DashboardCard
             icon={<MessageSquare size={24} />}
             title="Messages"
             description="View messages and enquiries sent through the website."
             action="View Messages"
-            onClick={() => router.push("/sayolaproadmin/messages")}
+            onClick={() =>
+              router.push("/sayolaproadmin/messages")
+            }
           />
 
           <DashboardCard
@@ -46,7 +50,9 @@ export default function SayolaProAdminPage() {
             title="Properties"
             description="Add, edit, update and delete property listings."
             action="Manage Properties"
-            onClick={() => router.push("/sayolaproadmin/properties")}
+            onClick={() =>
+              router.push("/sayolaproadmin/properties")
+            }
           />
 
           <DashboardCard
@@ -54,7 +60,9 @@ export default function SayolaProAdminPage() {
             title="Team"
             description="Manage team members displayed on the website."
             action="Manage Team"
-            onClick={() => router.push("/sayolaproadmin/team")}
+            onClick={() =>
+              router.push("/sayolaproadmin/team")
+            }
           />
 
           <DashboardCard
@@ -62,12 +70,26 @@ export default function SayolaProAdminPage() {
             title="Real Estate Gist"
             description="Create, edit and publish real estate articles."
             action="Manage Gist"
-            onClick={() => router.push("/sayolaproadmin/gists")}
+            onClick={() =>
+              router.push("/sayolaproadmin/gists")
+            }
+          />
+
+          <DashboardCard
+            icon={<Film size={24} />}
+            title="Promotions"
+            description="Create, edit, hide, show and delete homepage promotional videos."
+            action="Manage Promotions"
+            onClick={() =>
+              router.push("/sayolaproadmin/promotions")
+            }
           />
 
         </div>
 
+        {/* QUICK ACTIONS */}
         <section className="mt-8 rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+
           <h2 className="text-xl font-extrabold text-[#0A2342]">
             Quick Actions
           </h2>
@@ -111,10 +133,23 @@ export default function SayolaProAdminPage() {
               Add Gist
             </button>
 
+            <button
+              type="button"
+              onClick={() =>
+                router.push("/sayolaproadmin/promotions/new")
+              }
+              className="inline-flex items-center gap-2 rounded-xl border border-[#FF6B00] px-5 py-3 text-sm font-bold text-[#FF6B00] transition hover:bg-[#FF6B00] hover:text-white"
+            >
+              <Film size={17} />
+              Add Promotion
+            </button>
+
           </div>
         </section>
 
+        {/* ADMIN MODE */}
         <section className="mt-8 rounded-2xl bg-[#0A2342] p-6 text-white sm:p-8">
+
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#FF6B00]">
             Admin Mode
           </p>
@@ -127,6 +162,7 @@ export default function SayolaProAdminPage() {
             Authentication is temporarily disabled while the Firebase
             database and administration system are being built.
           </p>
+
         </section>
 
       </div>
