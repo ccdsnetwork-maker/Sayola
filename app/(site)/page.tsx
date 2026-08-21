@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -93,6 +93,8 @@ export default function Home() {
     useState<Property[]>([]);
   const [featuredPage, setFeaturedPage] = useState(1);
 
+  const featuredSectionRef = useRef<HTMLElement | null>(null);
+
   const FEATURED_PER_PAGE = 6;
 
   const featuredTotalPages = Math.max(
@@ -137,6 +139,13 @@ export default function Home() {
 
     loadFeaturedProperties();
   }, []);
+
+  useEffect(() => {
+    featuredSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, [featuredPage]);
 
   return (
     <>
@@ -478,7 +487,10 @@ export default function Home() {
       <PromotionSlider />
 
       {/* FEATURED PROPERTIES */}
-      <section className="bg-white py-24">
+      <section
+        ref={featuredSectionRef}
+        className="scroll-mt-24 bg-white py-24"
+      >
         <div className="container-site">
           <Reveal className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
