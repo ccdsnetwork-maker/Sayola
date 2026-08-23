@@ -1,0 +1,1506 @@
+"use client";
+
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import {
+  Car,
+  CheckCircle2,
+  ClipboardList,
+  ImagePlus,
+  Loader2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+  X,
+} from "lucide-react";
+
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  updateDoc,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+
+type LogisticsCar = {
+  id: string;
+  name: string;
+  brand: string;
+  model: string;
+  year: string;
+  category: string;
+  transmission: string;
+  seats: string;
+  pricePerDay: string;
+  location: string;
+  description: string;
+  imageUrl: string;
+  available: boolean;
+  createdAt?: unknown;
+};
+
+type CarForm = {
+  name: string;
+  brand: string;
+  model: string;
+  year: string;
+  category: string;
+  transmission: string;
+  seats: string;
+  pricePerDay: string;
+  location: string;
+  description: string;
+  imageUrl: string;
+  available: boolean;
+};
+
+type LogisticsRequest = {
+  id: string;
+  requestId: string;
+  trackingId?: string;
+  name: string;
+  phone: string;
+  email: string;
+  service: string;
+  status: string;
+  pickupLocation?: string;
+  destination?: string;
+  passengers?: string;
+  duration?: string;
+  hireDays?: string;
+  selectedCar?: string;
+  totalAmount?: string;
+  message?: string;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+};
+
+
+const emptyForm: CarForm = {
+  name: "",
+  brand: "",
+  model: "",
+  year: "",
+  category: "Sedan",
+  transmission: "Automatic",
+  seats: "5",
+  pricePerDay: "",
+  location: "",
+  description: "",
+  imageUrl: "",
+  available: true,
+};
+
+const categories = [
+  "Sedan",
+  "SUV",
+  "Executive",
+  "Luxury",
+  "Bus",
+  "Van",
+  "Pickup",
+];
+
+const transmissions = [
+  "Automatic",
+  "Manual",
+];
+
+export default function AdminLogisticsPage() {
+  const [cars, setCars] = useState<LogisticsCar[]>([]);
+  const [requests, setRequests] = useState<LogisticsRequest[]>([]);
+  const [form, setForm] = useState<CarForm>(emptyForm);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const [editingId, setEditingId] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    loadCars();
+    loadRequests();
+  }, []);
+
+  async function loadRequests() {
+    try {
+      const snapshot = await getDocs(
+        query(
+          collection(db, "messages"),
+          orderBy("createdAt", "desc")
+        )
+      );
+
+      const results: LogisticsRequest[] = snapshot.docs
+        .map((item) => {
+          const data = item.data();
+
+          return {
+            id: item.id,
+            requestId: String(
+              data.requestId || data.trackingId || ""
+            ),
+            trackingId: data.trackingId
+              ? String(data.trackingId)
+              : undefined,
+            name: String(data.name || ""),
+            phone: String(data.phone || ""),
+            email: String(data.email || ""),
+            service: String(data.service || ""),
+            status: String(data.status || "Pending"),
+            pickupLocation: data.pickupLocation
+              ? String(data.pickupLocation)
+              : data.pickup
+              ? String(data.pickup)
+              : undefined,
+            destination: data.destination
+              ? String(data.destination)
+              : undefined,
+            passengers: data.passengers
+              ? String(data.passengers)
+              : undefined,
+            duration: data.duration
+              ? String(data.duration)
+              : undefined,
+            hireDays: data.hireDays
+              ? String(data.hireDays)
+              : undefined,
+            selectedCar: data.selectedCar
+              ? String(data.selectedCar)
+              : undefined,
+            totalAmount: data.totalAmount
+              ? String(data.totalAmount)
+              : data.hireTotal
+              ? String(data.hireTotal)
+              : undefined,
+            message: data.message
+              ? String(data.message)
+              : undefined,
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt,
+          };
+        })
+        .filter(
+          (request) =>
+            request.requestId &&
+            (
+              request.service.toLowerCase().includes("logistic") ||
+              request.service.toLowerCase().includes("hire") ||
+              request.pickupLocation ||
+              request.destination
+            )
+        );
+
+      setRequests(results);
+    } catch (err) {
+      console.error("LOAD LOGISTICS REQUESTS ERROR:", err);
+
+      setError(
+        "Could not load logistics requests. Check Firebase permissions."
+      );
+    }
+  }
+
+  async function updateRequestStatus(
+    request: LogisticsRequest,
+    status: string
+  ) {
+    try {
+      setError("");
+      setSuccess("");
+
+      await updateDoc(
+        doc(db, "messages", request.id),
+        {
+          status,
+          updatedAt: serverTimestamp(),
+        }
+      );
+
+      setRequests((current) =>
+        current.map((item) =>
+          item.id === request.id
+            ? {
+                ...item,
+                status,
+              }
+            : item
+        )
+      );
+
+      setSuccess(
+        `Request ${request.requestId} updated to ${status}.`
+      );
+    } catch (err) {
+      console.error("UPDATE LOGISTICS REQUEST ERROR:", err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not update request status."
+      );
+    }
+  }
+
+  async function loadCars() {
+    setLoading(true);
+    setError("");
+
+    try {
+      const carsQuery = query(
+        collection(db, "logisticsCars"),
+        orderBy("createdAt", "desc")
+      );
+
+      const snapshot = await getDocs(carsQuery);
+
+      const results: LogisticsCar[] = snapshot.docs.map((item) => {
+        const data = item.data();
+
+        return {
+          id: item.id,
+          name: String(data.name || ""),
+          brand: String(data.brand || ""),
+          model: String(data.model || ""),
+          year: String(data.year || ""),
+          category: String(data.category || "Sedan"),
+          transmission: String(data.transmission || "Automatic"),
+          seats: String(data.seats || "5"),
+          pricePerDay: String(data.pricePerDay || ""),
+          location: String(data.location || ""),
+          description: String(data.description || ""),
+          imageUrl: String(data.imageUrl || ""),
+          available: data.available !== false,
+          createdAt: data.createdAt,
+        };
+      });
+
+      setCars(results);
+    } catch (err) {
+      console.error("LOAD LOGISTICS CARS ERROR:", err);
+
+      setError(
+        "Could not load the logistics vehicles. Check your Firebase connection and Firestore permissions."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function updateField(
+    field: keyof CarForm,
+    value: string | boolean
+  ) {
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  async function uploadImage(
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError("Please select a valid image file.");
+      return;
+    }
+
+    setUploading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/cloudinary/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.url) {
+        throw new Error(
+          result.error || "Image upload failed."
+        );
+      }
+
+      updateField("imageUrl", result.url);
+      setSuccess("Vehicle image uploaded successfully.");
+    } catch (err) {
+      console.error("LOGISTICS IMAGE UPLOAD ERROR:", err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Vehicle image upload failed."
+      );
+    } finally {
+      setUploading(false);
+      event.target.value = "";
+    }
+  }
+
+  function resetForm() {
+    setForm(emptyForm);
+    setEditingId("");
+    setError("");
+  }
+
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    if (saving) return;
+
+    setError("");
+    setSuccess("");
+
+    if (
+      !form.name.trim() ||
+      !form.brand.trim() ||
+      !form.model.trim() ||
+      !form.year.trim() ||
+      !form.pricePerDay.trim() ||
+      !form.location.trim() ||
+      !form.description.trim()
+    ) {
+      setError("Please complete all required vehicle fields.");
+      return;
+    }
+
+    if (!form.imageUrl.trim()) {
+      setError("Please upload a vehicle image.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const payload = {
+        name: form.name.trim(),
+        brand: form.brand.trim(),
+        model: form.model.trim(),
+        year: form.year.trim(),
+        category: form.category,
+        transmission: form.transmission,
+        seats: form.seats.trim(),
+        pricePerDay: form.pricePerDay.trim(),
+        location: form.location.trim(),
+        description: form.description.trim(),
+        imageUrl: form.imageUrl.trim(),
+        available: form.available,
+        updatedAt: serverTimestamp(),
+      };
+
+      if (editingId) {
+        await updateDoc(
+          doc(db, "logisticsCars", editingId),
+          payload
+        );
+
+        setSuccess("Vehicle updated successfully.");
+      } else {
+        await addDoc(
+          collection(db, "logisticsCars"),
+          {
+            ...payload,
+            createdAt: serverTimestamp(),
+          }
+        );
+
+        setSuccess("Vehicle added successfully.");
+      }
+
+      resetForm();
+      await loadCars();
+    } catch (err) {
+      console.error("SAVE LOGISTICS CAR ERROR:", err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not save the vehicle."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function editCar(car: LogisticsCar) {
+    setEditingId(car.id);
+
+    setForm({
+      name: car.name,
+      brand: car.brand,
+      model: car.model,
+      year: car.year,
+      category: car.category,
+      transmission: car.transmission,
+      seats: car.seats,
+      pricePerDay: car.pricePerDay,
+      location: car.location,
+      description: car.description,
+      imageUrl: car.imageUrl,
+      available: car.available,
+    });
+
+    setError("");
+    setSuccess("");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
+  async function deleteCar(car: LogisticsCar) {
+    const confirmed = window.confirm(
+      `Delete "${car.name}"? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setError("");
+    setSuccess("");
+
+    try {
+      await deleteDoc(
+        doc(db, "logisticsCars", car.id)
+      );
+
+      setCars((current) =>
+        current.filter((item) => item.id !== car.id)
+      );
+
+      if (editingId === car.id) {
+        resetForm();
+      }
+
+      setSuccess("Vehicle deleted successfully.");
+    } catch (err) {
+      console.error("DELETE LOGISTICS CAR ERROR:", err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not delete the vehicle."
+      );
+    }
+  }
+
+  async function toggleAvailability(car: LogisticsCar) {
+    try {
+      await updateDoc(
+        doc(db, "logisticsCars", car.id),
+        {
+          available: !car.available,
+          updatedAt: serverTimestamp(),
+        }
+      );
+
+      setCars((current) =>
+        current.map((item) =>
+          item.id === car.id
+            ? {
+                ...item,
+                available: !item.available,
+              }
+            : item
+        )
+      );
+    } catch (err) {
+      console.error(
+        "TOGGLE LOGISTICS CAR ERROR:",
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not update vehicle availability."
+      );
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-[#F4F6F9]">
+      <div className="container-site py-10 sm:py-14">
+
+        {/* HEADER */}
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#FF6B00]">
+              SAYOLA KAYBEE
+            </p>
+
+            <h1 className="mt-2 text-3xl font-extrabold text-[#0A2342] sm:text-4xl">
+              Logistics & Hire Cars
+            </h1>
+
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500">
+              Add and manage the vehicles that customers will
+              see when they choose the Hire Car service on the
+              Logistics page.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 rounded-xl bg-[#0A2342] px-4 py-3 text-sm font-bold text-white">
+            <Car size={18} />
+            {cars.length} vehicle{cars.length === 1 ? "" : "s"}
+          </div>
+        </div>
+
+        {/* MANAGEMENT SECTIONS */}
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          <a
+            href="#car-management"
+            className="group rounded-2xl bg-[#0A2342] p-5 text-white shadow-sm transition hover:-translate-y-0.5"
+          >
+            <div className="flex items-center gap-3">
+              <Car size={24} />
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#FF6B00]">
+                  Section 1
+                </p>
+                <h2 className="mt-1 text-xl font-extrabold">
+                  Car Management
+                </h2>
+              </div>
+            </div>
+
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              Add, edit, hide, show and delete vehicles available
+              for customer hire.
+            </p>
+          </a>
+
+          <a
+            href="#request-management"
+            className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100 transition hover:-translate-y-0.5"
+          >
+            <div className="flex items-center gap-3">
+              <ClipboardList
+                size={24}
+                className="text-[#FF6B00]"
+              />
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#FF6B00]">
+                  Section 2
+                </p>
+                <h2 className="mt-1 text-xl font-extrabold text-[#0A2342]">
+                  Logistics Requests
+                </h2>
+              </div>
+            </div>
+
+            <p className="mt-3 text-sm leading-6 text-slate-500">
+              Review customer requests and update their status
+              whether approved, rejected or still pending.
+            </p>
+          </a>
+        </div>
+
+        {/* MESSAGES */}
+        {error && (
+          <div className="mt-7 flex items-start justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700">
+            <span>{error}</span>
+
+            <button
+              type="button"
+              onClick={() => setError("")}
+              aria-label="Close error"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        )}
+
+        {success && (
+          <div className="mt-7 flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-5 py-4 text-sm font-semibold text-green-700">
+            <CheckCircle2 size={18} />
+            {success}
+          </div>
+        )}
+
+        {/* =====================================================
+             SECTION 1 — CAR MANAGEMENT
+             ===================================================== */}
+        <section id="car-management" className="scroll-mt-24">
+          <div className="mb-5 mt-10">
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#FF6B00]">
+              Section 1
+            </p>
+            <h2 className="mt-2 text-2xl font-extrabold text-[#0A2342]">
+              Car Management
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+              Add and manage the vehicles customers can select
+              for the Hire Car service.
+            </p>
+          </div>
+
+          <section className="rounded-2xl bg-white bg-white p-6 shadow-sm sm:p-8">
+          <div className="flex items-start justify-between gap-5">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#FF6B00]">
+                {editingId ? "Edit Vehicle" : "Vehicle Inventory"}
+              </p>
+
+              <h2 className="mt-2 text-2xl font-extrabold text-[#0A2342]">
+                {editingId
+                  ? "Update vehicle information"
+                  : "Add a hire car"}
+              </h2>
+            </div>
+
+            {editingId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
+              >
+                <X size={17} />
+                Cancel
+              </button>
+            )}
+          </div>
+
+          <form
+            onSubmit={handleSubmit}
+            className="mt-8 space-y-6"
+          >
+            {/* IMAGE */}
+            <div>
+              <label className="mb-2 block text-sm font-bold text-[#0A2342]">
+                Vehicle Image *
+              </label>
+
+              <div className="grid gap-5 md:grid-cols-[240px_1fr]">
+                <div className="relative flex min-h-[180px] items-center justify-center overflow-hidden rounded-2xl bg-[#F4F6F9]">
+                  {form.imageUrl ? (
+                    <>
+                      <img
+                        src={form.imageUrl}
+                        alt={form.name || "Vehicle preview"}
+                        className="h-full min-h-[180px] w-full object-cover"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateField("imageUrl", "")
+                        }
+                        className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white"
+                        aria-label="Remove image"
+                      >
+                        <X size={17} />
+                      </button>
+                    </>
+                  ) : (
+                    <div className="text-center">
+                      <ImagePlus
+                        size={35}
+                        className="mx-auto text-slate-400"
+                      />
+
+                      <p className="mt-3 text-sm font-semibold text-slate-500">
+                        No vehicle image
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col justify-center">
+                  <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-xl bg-[#0A2342] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#FF6B00]">
+                    {uploading ? (
+                      <Loader2
+                        size={18}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <ImagePlus size={18} />
+                    )}
+
+                    {uploading
+                      ? "Uploading..."
+                      : "Upload Vehicle Image"}
+
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={uploadImage}
+                      disabled={uploading}
+                      className="hidden"
+                    />
+                  </label>
+
+                  <p className="mt-3 max-w-md text-xs leading-5 text-slate-500">
+                    Use a clear image of the actual vehicle.
+                    This image will later appear on the public
+                    Logistics / Hire Car section.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* BASIC INFORMATION */}
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              <div>
+                <label
+                  htmlFor="car-name"
+                  className="mb-2 block text-sm font-bold text-[#0A2342]"
+                >
+                  Vehicle Name *
+                </label>
+
+                <input
+                  id="car-name"
+                  value={form.name}
+                  onChange={(event) =>
+                    updateField("name", event.target.value)
+                  }
+                  placeholder="Toyota Camry 2024"
+                  required
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-[#FF6B00] focus:ring-2 focus:ring-[#FF6B00]/10"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="car-brand"
+                  className="mb-2 block text-sm font-bold text-[#0A2342]"
+                >
+                  Brand *
+                </label>
+
+                <input
+                  id="car-brand"
+                  value={form.brand}
+                  onChange={(event) =>
+                    updateField("brand", event.target.value)
+                  }
+                  placeholder="Toyota"
+                  required
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-[#FF6B00] focus:ring-2 focus:ring-[#FF6B00]/10"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="car-model"
+                  className="mb-2 block text-sm font-bold text-[#0A2342]"
+                >
+                  Model *
+                </label>
+
+                <input
+                  id="car-model"
+                  value={form.model}
+                  onChange={(event) =>
+                    updateField("model", event.target.value)
+                  }
+                  placeholder="Camry"
+                  required
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-[#FF6B00] focus:ring-2 focus:ring-[#FF6B00]/10"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="car-year"
+                  className="mb-2 block text-sm font-bold text-[#0A2342]"
+                >
+                  Year *
+                </label>
+
+                <input
+                  id="car-year"
+                  value={form.year}
+                  onChange={(event) =>
+                    updateField("year", event.target.value)
+                  }
+                  placeholder="2024"
+                  required
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-[#FF6B00] focus:ring-2 focus:ring-[#FF6B00]/10"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="car-category"
+                  className="mb-2 block text-sm font-bold text-[#0A2342]"
+                >
+                  Category *
+                </label>
+
+                <select
+                  id="car-category"
+                  value={form.category}
+                  onChange={(event) =>
+                    updateField("category", event.target.value)
+                  }
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none focus:border-[#FF6B00]"
+                >
+                  {categories.map((category) => (
+                    <option
+                      key={category}
+                      value={category}
+                    >
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="car-transmission"
+                  className="mb-2 block text-sm font-bold text-[#0A2342]"
+                >
+                  Transmission *
+                </label>
+
+                <select
+                  id="car-transmission"
+                  value={form.transmission}
+                  onChange={(event) =>
+                    updateField(
+                      "transmission",
+                      event.target.value
+                    )
+                  }
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none focus:border-[#FF6B00]"
+                >
+                  {transmissions.map((item) => (
+                    <option
+                      key={item}
+                      value={item}
+                    >
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="car-seats"
+                  className="mb-2 block text-sm font-bold text-[#0A2342]"
+                >
+                  Seats *
+                </label>
+
+                <input
+                  id="car-seats"
+                  value={form.seats}
+                  onChange={(event) =>
+                    updateField("seats", event.target.value)
+                  }
+                  placeholder="5"
+                  required
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-[#FF6B00] focus:ring-2 focus:ring-[#FF6B00]/10"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="car-price"
+                  className="mb-2 block text-sm font-bold text-[#0A2342]"
+                >
+                  Price Per Day *
+                </label>
+
+                <input
+                  id="car-price"
+                  value={form.pricePerDay}
+                  onChange={(event) =>
+                    updateField(
+                      "pricePerDay",
+                      event.target.value
+                    )
+                  }
+                  placeholder="150000"
+                  required
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-[#FF6B00] focus:ring-2 focus:ring-[#FF6B00]/10"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="car-location"
+                  className="mb-2 block text-sm font-bold text-[#0A2342]"
+                >
+                  Location *
+                </label>
+
+                <input
+                  id="car-location"
+                  value={form.location}
+                  onChange={(event) =>
+                    updateField(
+                      "location",
+                      event.target.value
+                    )
+                  }
+                  placeholder="Abuja"
+                  required
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-[#FF6B00] focus:ring-2 focus:ring-[#FF6B00]/10"
+                />
+              </div>
+            </div>
+
+            {/* DESCRIPTION */}
+            <div>
+              <label
+                htmlFor="car-description"
+                className="mb-2 block text-sm font-bold text-[#0A2342]"
+              >
+                Vehicle Description *
+              </label>
+
+              <textarea
+                id="car-description"
+                value={form.description}
+                onChange={(event) =>
+                  updateField(
+                    "description",
+                    event.target.value
+                  )
+                }
+                rows={5}
+                required
+                placeholder="Describe the vehicle, condition, features and anything customers should know..."
+                className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-[#FF6B00] focus:ring-2 focus:ring-[#FF6B00]/10"
+              />
+            </div>
+
+            {/* AVAILABILITY */}
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 p-4">
+              <input
+                type="checkbox"
+                checked={form.available}
+                onChange={(event) =>
+                  updateField(
+                    "available",
+                    event.target.checked
+                  )
+                }
+                className="h-5 w-5 accent-[#FF6B00]"
+              />
+
+              <span>
+                <span className="block text-sm font-bold text-[#0A2342]">
+                  Available for Hire
+                </span>
+
+                <span className="block text-xs text-slate-500">
+                  Customers will only see vehicles marked as
+                  available when the Hire Car form is loaded.
+                </span>
+              </span>
+            </label>
+
+            {/* ACTIONS */}
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                type="submit"
+                disabled={saving || uploading}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#FF6B00] px-6 py-4 text-sm font-bold text-white transition hover:bg-[#e85f00] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? (
+                  <Loader2
+                    size={18}
+                    className="animate-spin"
+                  />
+                ) : editingId ? (
+                  <Pencil size={18} />
+                ) : (
+                  <Plus size={18} />
+                )}
+
+                {saving
+                  ? "Saving..."
+                  : editingId
+                  ? "Update Vehicle"
+                  : "Add Vehicle"}
+              </button>
+
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  disabled={saving}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-6 py-4 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel Editing
+                </button>
+              )}
+            </div>
+          </form>
+        </section>
+
+        {/* VEHICLE LIST */}
+        <section className="mt-8">
+          <div className="mb-5">
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#FF6B00]">
+              Current Inventory
+            </p>
+
+            <h2 className="mt-2 text-2xl font-extrabold text-[#0A2342]">
+              Hire Cars
+            </h2>
+          </div>
+
+          {loading ? (
+            <div className="flex min-h-[220px] items-center justify-center rounded-2xl bg-white shadow-sm">
+              <div className="text-center">
+                <Loader2
+                  size={30}
+                  className="mx-auto animate-spin text-[#FF6B00]"
+                />
+
+                <p className="mt-3 text-sm font-semibold text-slate-500">
+                  Loading vehicles...
+                </p>
+              </div>
+            </div>
+          ) : cars.length === 0 ? (
+            <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
+              <Car
+                size={45}
+                className="mx-auto text-slate-300"
+              />
+
+              <h3 className="mt-4 text-xl font-extrabold text-[#0A2342]">
+                No vehicles added yet
+              </h3>
+
+              <p className="mt-2 text-sm text-slate-500">
+                Add your first hire car using the form above.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {cars.map((car) => (
+                <article
+                  key={car.id}
+                  className="overflow-hidden rounded-2xl bg-white shadow-sm"
+                >
+                  <div className="relative aspect-[16/10] bg-[#F4F6F9]">
+                    {car.imageUrl ? (
+                      <img
+                        src={car.imageUrl}
+                        alt={car.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <Car
+                          size={45}
+                          className="text-slate-300"
+                        />
+                      </div>
+                    )}
+
+                    <span
+                      className={`absolute right-3 top-3 rounded-full px-3 py-1.5 text-xs font-bold ${
+                        car.available
+                          ? "bg-green-500 text-white"
+                          : "bg-slate-700 text-white"
+                      }`}
+                    >
+                      {car.available
+                        ? "Available"
+                        : "Unavailable"}
+                    </span>
+                  </div>
+
+                  <div className="p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-[#FF6B00]">
+                          {car.category}
+                        </p>
+
+                        <h3 className="mt-1 text-xl font-extrabold text-[#0A2342]">
+                          {car.name}
+                        </h3>
+
+                        <p className="mt-1 text-sm text-slate-500">
+                          {car.brand} {car.model} • {car.year}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-2 gap-3 text-xs">
+                      <div className="rounded-lg bg-[#F4F6F9] p-3">
+                        <span className="block text-slate-400">
+                          Transmission
+                        </span>
+                        <strong className="mt-1 block text-[#0A2342]">
+                          {car.transmission}
+                        </strong>
+                      </div>
+
+                      <div className="rounded-lg bg-[#F4F6F9] p-3">
+                        <span className="block text-slate-400">
+                          Seats
+                        </span>
+                        <strong className="mt-1 block text-[#0A2342]">
+                          {car.seats}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <span className="text-xs text-slate-400">
+                        Price per day
+                      </span>
+
+                      <p className="text-lg font-extrabold text-[#0A2342]">
+                        ₦{car.pricePerDay}
+                      </p>
+                    </div>
+
+                    <p className="mt-3 text-xs text-slate-500">
+                      Location: {car.location}
+                    </p>
+
+                    <div className="mt-5 grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => editCar(car)}
+                        className="inline-flex items-center justify-center gap-1 rounded-lg bg-[#0A2342] px-3 py-2.5 text-xs font-bold text-white hover:bg-[#FF6B00]"
+                      >
+                        <Pencil size={14} />
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleAvailability(car)
+                        }
+                        className="rounded-lg border border-slate-200 px-2 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                      >
+                        {car.available
+                          ? "Hide"
+                          : "Show"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => deleteCar(car)}
+                        className="inline-flex items-center justify-center gap-1 rounded-lg bg-red-50 px-3 py-2.5 text-xs font-bold text-red-600 hover:bg-red-100"
+                      >
+                        <Trash2 size={14} />
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* =====================================================
+             SECTION 2 — LOGISTICS REQUEST MANAGEMENT
+             ===================================================== */}
+        <section
+          id="request-management"
+          className="mt-14 scroll-mt-24"
+        >
+          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#FF6B00]">
+                Section 2
+              </p>
+
+              <h2 className="mt-2 text-2xl font-extrabold text-[#0A2342]">
+                Logistics Request Management
+              </h2>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                Review every customer logistics request and update
+                its status. Customers can continue tracking their
+                requests regardless of the current status.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={loadRequests}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
+            >
+              <RefreshCw size={17} />
+              Refresh Requests
+            </button>
+          </div>
+
+          <div className="mb-5 grid gap-4 sm:grid-cols-4">
+            <div className="rounded-2xl bg-white p-5 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Total
+              </p>
+              <p className="mt-2 text-2xl font-extrabold text-[#0A2342]">
+                {requests.length}
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-white p-5 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Pending
+              </p>
+              <p className="mt-2 text-2xl font-extrabold text-amber-600">
+                {
+                  requests.filter(
+                    (item) =>
+                      item.status.toLowerCase() === "pending"
+                  ).length
+                }
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-white p-5 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Approved
+              </p>
+              <p className="mt-2 text-2xl font-extrabold text-green-600">
+                {
+                  requests.filter((item) =>
+                    ["approved", "completed"].includes(
+                      item.status.toLowerCase()
+                    )
+                  ).length
+                }
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-white p-5 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Rejected
+              </p>
+              <p className="mt-2 text-2xl font-extrabold text-red-600">
+                {
+                  requests.filter(
+                    (item) =>
+                      item.status.toLowerCase() === "rejected"
+                  ).length
+                }
+              </p>
+            </div>
+          </div>
+
+          {requests.length === 0 ? (
+            <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
+              <ClipboardList
+                size={45}
+                className="mx-auto text-slate-300"
+              />
+
+              <h3 className="mt-4 text-xl font-extrabold text-[#0A2342]">
+                No logistics requests found
+              </h3>
+
+              <p className="mt-2 text-sm text-slate-500">
+                Customer logistics requests will appear here once
+                they are submitted.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {requests.map((request) => {
+                const status = request.status.toLowerCase();
+
+                const statusClass =
+                  status === "approved" ||
+                  status === "completed"
+                    ? "bg-green-50 text-green-700 border-green-200"
+                    : status === "rejected"
+                    ? "bg-red-50 text-red-700 border-red-200"
+                    : "bg-amber-50 text-amber-700 border-amber-200";
+
+                return (
+                  <article
+                    key={request.id}
+                    className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100"
+                  >
+                    <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#FF6B00]">
+                          Request ID
+                        </p>
+
+                        <h3 className="mt-1 break-all text-lg font-extrabold tracking-wide text-[#0A2342]">
+                          {request.requestId}
+                        </h3>
+
+                        <p className="mt-1 text-xs text-slate-400">
+                          {request.service || "Logistics Service"}
+                        </p>
+                      </div>
+
+                      <span
+                        className={`w-fit rounded-full border px-4 py-2 text-xs font-extrabold uppercase tracking-wide ${statusClass}`}
+                      >
+                        {request.status || "Pending"}
+                      </span>
+                    </div>
+
+                    <div className="grid gap-5 p-5 sm:grid-cols-2 lg:grid-cols-4 sm:p-6">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Customer
+                        </p>
+                        <p className="mt-1 text-sm font-bold text-[#0A2342]">
+                          {request.name || "Not provided"}
+                        </p>
+                        <p className="mt-1 break-all text-xs text-slate-500">
+                          {request.phone || request.email}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Pickup
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-slate-700">
+                          {request.pickupLocation || "Not provided"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Destination
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-slate-700">
+                          {request.destination || "Not provided"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Hire Details
+                        </p>
+
+                        <p className="mt-1 text-sm font-semibold text-slate-700">
+                          {request.passengers
+                            ? `${request.passengers} passenger(s)`
+                            : "Passengers not specified"}
+                        </p>
+
+                        {request.hireDays && (
+                          <p className="mt-1 text-xs text-slate-500">
+                            {request.hireDays} day(s)
+                          </p>
+                        )}
+
+                        {request.totalAmount && (
+                          <p className="mt-1 font-extrabold text-[#0A2342]">
+                            ₦{request.totalAmount}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {request.selectedCar && (
+                      <div className="mx-5 mb-5 rounded-xl bg-[#F4F6F9] p-4 sm:mx-6">
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Selected Vehicle
+                        </p>
+
+                        <p className="mt-1 text-sm font-extrabold text-[#0A2342]">
+                          {request.selectedCar}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500">
+                          Customers can track this request using the
+                          Request ID above, regardless of status.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateRequestStatus(
+                              request,
+                              "Pending"
+                            )
+                          }
+                          className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-100"
+                        >
+                          Pending
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateRequestStatus(
+                              request,
+                              "Approved"
+                            )
+                          }
+                          className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-bold text-green-700 hover:bg-green-100"
+                        >
+                          Approve
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateRequestStatus(
+                              request,
+                              "Rejected"
+                            )
+                          }
+                          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100"
+                        >
+                          Reject
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateRequestStatus(
+                              request,
+                              "Completed"
+                            )
+                          }
+                          className="rounded-lg bg-[#0A2342] px-3 py-2 text-xs font-bold text-white hover:bg-[#FF6B00]"
+                        >
+                          Completed
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+        </section>
+      </div>
+    </main>
+  );
+}

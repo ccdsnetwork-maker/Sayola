@@ -101,17 +101,19 @@ const process = [
 ];
 
 function generateTrackingId() {
-  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const now = new Date();
 
-  let trackingId = "";
+  const date =
+    now.getFullYear().toString() +
+    String(now.getMonth() + 1).padStart(2, "0") +
+    String(now.getDate()).padStart(2, "0");
 
-  for (let i = 0; i < 10; i++) {
-    trackingId += characters.charAt(
-      Math.floor(Math.random() * characters.length)
-    );
-  }
+  const random = Math.random()
+    .toString(36)
+    .substring(2, 8)
+    .toUpperCase();
 
-  return trackingId;
+  return `SAY-LOG-${date}-${random}`;
 }
 
 export default function LogisticsPage() {
@@ -124,7 +126,7 @@ export default function LogisticsPage() {
   const [cars, setCars] = useState<LogisticsCar[]>([]);
   const [loadingCars, setLoadingCars] = useState(true);
   const [selectedCarId, setSelectedCarId] = useState("");
-  const [hireDays, setHireDays] = useState("");
+  const [hireDays, setHireDays] = useState(1);
 
   async function loadLogisticsCars() {
     try {
@@ -176,11 +178,9 @@ export default function LogisticsPage() {
     (car) => car.id === selectedCarId
   );
 
-  const hireDaysNumber = Number(hireDays);
-
   const hireTotal =
-    selectedCar && hireDaysNumber > 0
-      ? selectedCar.pricePerDay * hireDaysNumber
+    selectedCar && hireDays > 0
+      ? selectedCar.pricePerDay * hireDays
       : 0;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -283,30 +283,38 @@ export default function LogisticsPage() {
     }
 
     if (selectedService === "hire-car") {
+      const pickupLocation = String(
+        formData.get("pickupLocation") || ""
+      ).trim();
+      const destination = String(
+        formData.get("destination") || ""
+      ).trim();
       const hireDate = String(
         formData.get("hireDate") || ""
       ).trim();
-
-      const hireDaysValue = String(
-        formData.get("hireDays") || ""
+      const hireTime = String(
+        formData.get("hireTime") || ""
       ).trim();
-
+      const duration = String(
+        formData.get("duration") || ""
+      ).trim();
+      const passengers = String(
+        formData.get("passengers") || ""
+      ).trim();
       const message = String(
         formData.get("message") || ""
       ).trim();
 
-      const parsedHireDays = Number(hireDaysValue);
-
       if (
+        !pickupLocation ||
+        !destination ||
         !hireDate ||
-        !hireDaysValue ||
-        !Number.isInteger(parsedHireDays) ||
-        parsedHireDays < 1 ||
+        !hireTime ||
+        !duration ||
+        !passengers ||
         !message
       ) {
-        setError(
-          "Please enter a hire date, preferred time, a valid number of days and your additional information."
-        );
+        setError("Please complete all hire car request fields.");
         return;
       }
 
@@ -315,10 +323,19 @@ export default function LogisticsPage() {
         return;
       }
 
+      if (!hireDays || hireDays < 1) {
+        setError("Please select at least one hire day.");
+        return;
+      }
+
       requestData = {
         ...requestData,
+        pickupLocation,
+        destination,
         hireDate,
-        hireDays: parsedHireDays,
+        hireTime,
+        duration,
+        passengers,
         message,
 
         carId: selectedCar.id,
@@ -328,6 +345,7 @@ export default function LogisticsPage() {
         carYear: selectedCar.year || "",
 
         pricePerDay: selectedCar.pricePerDay,
+        hireDays,
         hireTotal,
       };
     }
@@ -353,10 +371,10 @@ export default function LogisticsPage() {
       form.reset();
       setService("");
       setSelectedCarId("");
-      setHireDays("");
+      setHireDays(1);
 
       router.push(
-        `/request-success?id=${encodeURIComponent(trackingId)}`
+        `/track-request?id=${encodeURIComponent(trackingId)}`
       );
     } catch (err) {
       console.error("LOGISTICS REQUEST ERROR:", err);
@@ -987,11 +1005,9 @@ export default function LogisticsPage() {
                                       )}
                                     </div>
 
-                                    {selectedCarId === car.id && (
-                                      <span className="shrink-0 rounded-lg bg-[#FF6B00]/10 px-2.5 py-1 text-xs font-extrabold text-[#FF6B00]">
-                                        Selected
-                                      </span>
-                                    )}
+                                    <span className="shrink-0 rounded-lg bg-[#FF6B00]/10 px-2.5 py-1 text-xs font-extrabold text-[#FF6B00]">
+                                      Selected
+                                    </span>
                                   </div>
 
                                   {car.description && (
@@ -1043,6 +1059,43 @@ export default function LogisticsPage() {
                       )}
 
                       {/* HIRE DETAILS */}
+                      <div className="grid gap-5 sm:grid-cols-2">
+
+                        <div>
+                          <label
+                            htmlFor="pickupLocation"
+                            className="mb-2 block text-sm font-bold text-[#0A2342]"
+                          >
+                            Pickup Location *
+                          </label>
+
+                          <input
+                            id="pickupLocation"
+                            name="pickupLocation"
+                            required
+                            placeholder="Where should we pick you up?"
+                            className="w-full rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none transition focus:border-[#FF6B00] focus:ring-2 focus:ring-[#FF6B00]/10"
+                          />
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="destination"
+                            className="mb-2 block text-sm font-bold text-[#0A2342]"
+                          >
+                            Destination *
+                          </label>
+
+                          <input
+                            id="destination"
+                            name="destination"
+                            required
+                            placeholder="Where are you going?"
+                            className="w-full rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none transition focus:border-[#FF6B00] focus:ring-2 focus:ring-[#FF6B00]/10"
+                          />
+                        </div>
+
+                      </div>
 
                       <div className="grid gap-5 sm:grid-cols-2">
 
@@ -1083,37 +1136,90 @@ export default function LogisticsPage() {
                       </div>
 
                       {/* NUMBER OF DAYS */}
+                      <div className="grid gap-5 sm:grid-cols-2">
+
+                        <div>
+                          <label
+                            htmlFor="hireDays"
+                            className="mb-2 block text-sm font-bold text-[#0A2342]"
+                          >
+                            Number of Days *
+                          </label>
+
+                          <input
+                            id="hireDays"
+                            name="hireDays"
+                            required
+                            type="number"
+                            min="1"
+                            value={hireDays}
+                            onChange={(event) => {
+                              const value = Number(event.target.value);
+
+                              setHireDays(
+                                Number.isFinite(value) && value > 0
+                                  ? Math.floor(value)
+                                  : 1
+                              );
+                            }}
+                            className="w-full rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none transition focus:border-[#FF6B00] focus:ring-2 focus:ring-[#FF6B00]/10"
+                          />
+
+                          <p className="mt-2 text-xs text-slate-500">
+                            Enter the total number of days you want to hire
+                            the vehicle.
+                          </p>
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="duration"
+                            className="mb-2 block text-sm font-bold text-[#0A2342]"
+                          >
+                            Hire Duration *
+                          </label>
+
+                          <select
+                            id="duration"
+                            name="duration"
+                            required
+                            defaultValue="multiple-days"
+                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-[#FF6B00] focus:ring-2 focus:ring-[#FF6B00]/10"
+                          >
+                            <option value="one-day">
+                              One Day
+                            </option>
+
+                            <option value="multiple-days">
+                              Multiple Days
+                            </option>
+
+                            <option value="custom">
+                              Custom Arrangement
+                            </option>
+                          </select>
+                        </div>
+
+                      </div>
+
+                      {/* PASSENGERS */}
                       <div>
                         <label
-                          htmlFor="hireDays"
+                          htmlFor="passengers"
                           className="mb-2 block text-sm font-bold text-[#0A2342]"
                         >
-                          Number of Days *
+                          Number of Passengers *
                         </label>
 
                         <input
-                          id="hireDays"
-                          name="hireDays"
+                          id="passengers"
+                          name="passengers"
                           required
                           type="number"
                           min="1"
-                          step="1"
-                          inputMode="numeric"
-                          value={hireDays}
-                          onChange={(event) => {
-                            const value = event.target.value;
-
-                            if (value === "" || /^\d+$/.test(value)) {
-                              setHireDays(value);
-                            }
-                          }}
-                          placeholder="Enter number of days"
+                          placeholder="1"
                           className="w-full rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none transition focus:border-[#FF6B00] focus:ring-2 focus:ring-[#FF6B00]/10"
                         />
-
-                        <p className="mt-2 text-xs text-slate-500">
-                          Enter the number of days you want to rent the vehicle.
-                        </p>
                       </div>
 
                       {/* LIVE PRICE */}

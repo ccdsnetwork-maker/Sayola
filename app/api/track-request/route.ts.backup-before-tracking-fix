@@ -1,0 +1,63 @@
+import { NextResponse } from "next/server";
+import {
+  collection,
+  getDocs,
+  limit,
+  query,
+  where,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const requestId = searchParams.get("id")?.trim();
+
+    if (!requestId) {
+      return NextResponse.json(
+        { error: "Request ID is required." },
+        { status: 400 }
+      );
+    }
+
+    const messagesQuery = query(
+      collection(db, "messages"),
+      where("requestId", "==", requestId),
+      limit(1)
+    );
+
+    const snapshot = await getDocs(messagesQuery);
+
+    if (snapshot.empty) {
+      return NextResponse.json(
+        { error: "Request not found. Please check your Request ID." },
+        { status: 404 }
+      );
+    }
+
+    const doc = snapshot.docs[0];
+    const data = doc.data();
+
+    return NextResponse.json({
+      success: true,
+      request: {
+        requestId: data.requestId,
+        name: data.name,
+        phone: data.phone,
+        email: data.email,
+        service: data.service,
+        status: data.status || "Pending",
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || null,
+      },
+    });
+  } catch (error) {
+    console.error("Track request error:", error);
+
+    return NextResponse.json(
+      { error: "Unable to retrieve request." },
+      { status: 500 }
+    );
+  }
+}

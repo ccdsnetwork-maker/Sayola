@@ -101,17 +101,19 @@ const process = [
 ];
 
 function generateTrackingId() {
-  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const now = new Date();
 
-  let trackingId = "";
+  const date =
+    now.getFullYear().toString() +
+    String(now.getMonth() + 1).padStart(2, "0") +
+    String(now.getDate()).padStart(2, "0");
 
-  for (let i = 0; i < 10; i++) {
-    trackingId += characters.charAt(
-      Math.floor(Math.random() * characters.length)
-    );
-  }
+  const random = Math.random()
+    .toString(36)
+    .substring(2, 8)
+    .toUpperCase();
 
-  return trackingId;
+  return `SAY-LOG-${date}-${random}`;
 }
 
 export default function LogisticsPage() {
@@ -305,7 +307,7 @@ export default function LogisticsPage() {
         !message
       ) {
         setError(
-          "Please enter a hire date, preferred time, a valid number of days and your additional information."
+          "Please enter a hire date, a valid number of days and your additional information."
         );
         return;
       }
@@ -1099,7 +1101,7 @@ export default function LogisticsPage() {
                           min="1"
                           step="1"
                           inputMode="numeric"
-                          value={hireDays}
+                          value={hireDaysNumber}
                           onChange={(event) => {
                             const value = event.target.value;
 

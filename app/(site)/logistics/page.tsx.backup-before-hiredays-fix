@@ -305,7 +305,7 @@ export default function LogisticsPage() {
         !message
       ) {
         setError(
-          "Please enter a hire date, preferred time, a valid number of days and your additional information."
+          "Please enter a hire date, a valid number of days and your additional information."
         );
         return;
       }

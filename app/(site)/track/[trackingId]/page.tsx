@@ -1,0 +1,686 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import {
+  AlertCircle,
+  Car,
+  CheckCircle2,
+  Clock3,
+  Mail,
+  MapPin,
+  Package,
+  Phone,
+  Truck,
+  User,
+} from "lucide-react";
+
+type RequestData = {
+  trackingId: string;
+  name: string;
+  phone: string;
+  email: string;
+  service: string;
+  status: string;
+
+  pickup?: string;
+  pickupLocation?: string;
+  destination?: string;
+
+  goods?: string;
+  vehicleType?: string;
+  logisticsType?: string;
+
+  hireDate?: string;
+  hireTime?: string;
+  hireDays?: number;
+  hireDuration?: string;
+
+  passengers?: number;
+
+  selectedCarId?: string;
+  selectedCarName?: string;
+  carId?: string;
+  carName?: string;
+  carBrand?: string;
+  carModel?: string;
+  carYear?: string;
+
+  pricePerDay?: number;
+  vehiclePricePerDay?: number;
+  hireTotal?: number;
+
+  message?: string;
+};
+
+function formatService(service: string) {
+  switch (service) {
+    case "hire-car":
+      return "Hire Car";
+
+    case "haulage":
+      return "Haulage";
+
+    case "logistics":
+      return "General Logistics";
+
+    default:
+      return service || "Logistics Service";
+  }
+}
+
+function formatMoney(value?: number) {
+  if (!value || value <= 0) return "Not specified";
+  return `₦${value.toLocaleString()}`;
+}
+
+function Detail({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value?: string | number;
+  icon?: React.ReactNode;
+}) {
+  if (
+    value === undefined ||
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    return null;
+  }
+
+  return (
+    <div>
+      <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+        {icon}
+        {label}
+      </p>
+
+      <p className="mt-1 break-words font-semibold text-slate-700">
+        {String(value)}
+      </p>
+    </div>
+  );
+}
+
+export default function TrackingDashboard() {
+  const params = useParams();
+
+  const trackingId = String(params.trackingId || "");
+
+  const [request, setRequest] = useState<RequestData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    async function loadRequest() {
+      const id = trackingId.trim().replace(/\s+/g, "");
+
+      if (!id) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `/api/track-request?id=${encodeURIComponent(id)}`,
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error || "We could not find this request."
+          );
+        }
+
+        setRequest({
+          trackingId: String(
+            data.trackingId || data.requestId || id
+          ).toUpperCase(),
+
+          name: String(data.name || ""),
+          phone: String(data.phone || ""),
+          email: String(data.email || ""),
+          service: String(data.service || ""),
+          status: String(data.status || "Pending"),
+
+          pickup: String(
+            data.pickup || data.pickupLocation || ""
+          ),
+
+          pickupLocation: String(
+            data.pickupLocation || data.pickup || ""
+          ),
+
+          destination: String(data.destination || ""),
+
+          goods: String(data.goods || ""),
+          vehicleType: String(data.vehicleType || ""),
+          logisticsType: String(data.logisticsType || ""),
+
+          hireDate: String(data.hireDate || ""),
+          hireTime: String(data.hireTime || ""),
+          hireDays:
+            typeof data.hireDays === "number"
+              ? data.hireDays
+              : Number(data.hireDays || 0),
+
+          hireDuration: String(
+            data.hireDuration || data.duration || ""
+          ),
+
+          passengers:
+            typeof data.passengers === "number"
+              ? data.passengers
+              : Number(data.passengers || 0),
+
+          selectedCarId: String(data.selectedCarId || ""),
+          selectedCarName: String(data.selectedCarName || ""),
+
+          carId: String(data.carId || ""),
+          carName: String(data.carName || ""),
+          carBrand: String(data.carBrand || ""),
+          carModel: String(data.carModel || ""),
+          carYear: String(data.carYear || ""),
+
+          pricePerDay:
+            typeof data.pricePerDay === "number"
+              ? data.pricePerDay
+              : Number(data.pricePerDay || 0),
+
+          vehiclePricePerDay:
+            typeof data.vehiclePricePerDay === "number"
+              ? data.vehiclePricePerDay
+              : Number(data.vehiclePricePerDay || 0),
+
+          hireTotal:
+            typeof data.hireTotal === "number"
+              ? data.hireTotal
+              : Number(data.hireTotal || 0),
+
+          message: String(data.message || ""),
+        });
+
+        setNotFound(false);
+      } catch (error) {
+        console.error("TRACKING ERROR:", error);
+        setNotFound(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadRequest();
+  }, [trackingId]);
+
+  if (loading) {
+    return (
+      <main className="min-h-[70vh] bg-[#F4F6F9] py-20">
+        <div className="container-site">
+          <div className="mx-auto max-w-4xl rounded-2xl bg-white p-10 text-center shadow-sm">
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#FF6B00]" />
+
+            <p className="mt-5 font-semibold text-slate-600">
+              Loading your request...
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (notFound || !request) {
+    return (
+      <main className="min-h-[70vh] bg-[#F4F6F9] py-20">
+        <div className="container-site">
+          <div className="mx-auto max-w-2xl rounded-2xl bg-white p-8 text-center shadow-sm sm:p-12">
+            <AlertCircle
+              size={50}
+              className="mx-auto text-[#FF6B00]"
+            />
+
+            <h1 className="mt-5 text-3xl font-extrabold text-[#0A2342]">
+              Request not found
+            </h1>
+
+            <p className="mt-4 leading-7 text-slate-500">
+              We could not find a request matching this tracking
+              ID. Please check the ID and try again.
+            </p>
+
+            <a
+              href="/track"
+              className="mt-7 inline-flex rounded-xl bg-[#FF6B00] px-6 py-3 font-bold text-white"
+            >
+              Try Another Tracking ID
+            </a>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const service = request.service.toLowerCase();
+
+  const isHireCar =
+    service === "hire-car" ||
+    Boolean(request.carId) ||
+    Boolean(request.selectedCarId);
+
+  const isHaulage = service === "haulage";
+
+  const isLogistics = service === "logistics";
+
+  const status = request.status.toLowerCase();
+
+  return (
+    <main className="min-h-screen bg-[#F4F6F9] py-12 sm:py-20">
+      <div className="container-site">
+        <div className="mx-auto max-w-5xl">
+
+          {/* HEADER */}
+          <div className="rounded-[2rem] bg-[#0A2342] p-7 text-white sm:p-10">
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#FF6B00]">
+              Request Dashboard
+            </p>
+
+            <h1 className="mt-4 text-3xl font-extrabold sm:text-5xl">
+              Your {isHireCar ? "hire car" : "logistics"} request
+            </h1>
+
+            <div className="mt-6 flex flex-col gap-2">
+              <span className="text-sm text-slate-300">
+                Tracking ID
+              </span>
+
+              <span className="break-all text-lg font-extrabold tracking-wide text-[#FF6B00] sm:text-2xl">
+                {request.trackingId}
+              </span>
+            </div>
+          </div>
+
+          {/* STATUS */}
+          <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-bold uppercase tracking-[0.15em] text-slate-400">
+                  Current Status
+                </p>
+
+                <div className="mt-3 flex items-center gap-3">
+                  {status === "completed" ? (
+                    <CheckCircle2
+                      size={28}
+                      className="text-green-600"
+                    />
+                  ) : (
+                    <Clock3
+                      size={28}
+                      className="text-[#FF6B00]"
+                    />
+                  )}
+
+                  <span className="text-2xl font-extrabold text-[#0A2342]">
+                    {request.status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-[#F4F6F9] px-5 py-4 text-sm text-slate-500">
+                Your request is being processed by SAYOLA
+                KAYBEE GLOBAL LIMITED.
+              </div>
+            </div>
+          </div>
+
+          {/* BASIC USER INFORMATION */}
+          <div className="mt-6">
+            <section className="rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FF6B00]/10 text-[#FF6B00]">
+                  <User size={21} />
+                </div>
+
+                <h2 className="text-xl font-extrabold text-[#0A2342]">
+                  Your Information
+                </h2>
+              </div>
+
+              <div className="mt-7 grid gap-5 sm:grid-cols-2">
+                <Detail
+                  label="Full Name"
+                  value={request.name}
+                  icon={<User size={14} />}
+                />
+
+                <Detail
+                  label="Service"
+                  value={formatService(request.service)}
+                />
+
+                <Detail
+                  label="Phone"
+                  value={request.phone}
+                  icon={<Phone size={14} />}
+                />
+
+                <Detail
+                  label="Email"
+                  value={request.email}
+                  icon={<Mail size={14} />}
+                />
+              </div>
+            </section>
+          </div>
+
+          {/* ====================================================
+              HIRE CAR
+             ==================================================== */}
+
+          {isHireCar && (
+            <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FF6B00]/10 text-[#FF6B00]">
+                  <Car size={21} />
+                </div>
+
+                <div>
+                  <h2 className="text-xl font-extrabold text-[#0A2342]">
+                    Hire Car Details
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Details of the vehicle and hire period you
+                    selected.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-7 grid gap-6 sm:grid-cols-2">
+
+                <Detail
+                  label="Selected Vehicle"
+                  value={
+                    request.selectedCarName ||
+                    request.carName ||
+                    "Vehicle selected"
+                  }
+                  icon={<Car size={14} />}
+                />
+
+                <Detail
+                  label="Vehicle Brand"
+                  value={request.carBrand}
+                />
+
+                <Detail
+                  label="Vehicle Model"
+                  value={request.carModel}
+                />
+
+                <Detail
+                  label="Vehicle Year"
+                  value={request.carYear}
+                />
+
+                <Detail
+                  label="Hire Date"
+                  value={request.hireDate}
+                />
+
+                <Detail
+                  label="Number of Days"
+                  value={
+                    request.hireDays && request.hireDays > 0
+                      ? `${request.hireDays} day${
+                          request.hireDays === 1 ? "" : "s"
+                        }`
+                      : undefined
+                  }
+                />
+
+                <Detail
+                  label="Price Per Day"
+                  value={formatMoney(
+                    request.pricePerDay ||
+                      request.vehiclePricePerDay
+                  )}
+                />
+
+                <Detail
+                  label="Estimated Hire Total"
+                  value={formatMoney(request.hireTotal)}
+                />
+
+                {request.passengers &&
+                  request.passengers > 0 && (
+                    <Detail
+                      label="Passengers"
+                      value={request.passengers}
+                    />
+                  )}
+              </div>
+
+              {(request.hireTotal || request.pricePerDay) && (
+                <div className="mt-7 rounded-2xl bg-[#0A2342] p-6 text-white">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                    Hire Cost
+                  </p>
+
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-sm text-slate-300">
+                        {request.pricePerDay
+                          ? `${formatMoney(
+                              request.pricePerDay
+                            )} per day`
+                          : "Vehicle hire"}
+                      </p>
+
+                      {request.hireDays &&
+                        request.hireDays > 0 && (
+                          <p className="mt-1 text-sm text-slate-400">
+                            {request.hireDays} day
+                            {request.hireDays === 1
+                              ? ""
+                              : "s"}
+                          </p>
+                        )}
+                    </div>
+
+                    {request.hireTotal &&
+                      request.hireTotal > 0 && (
+                        <p className="text-3xl font-extrabold text-[#FF6B00]">
+                          {formatMoney(request.hireTotal)}
+                        </p>
+                      )}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* ====================================================
+              HAULAGE
+             ==================================================== */}
+
+          {isHaulage && (
+            <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FF6B00]/10 text-[#FF6B00]">
+                  <Truck size={21} />
+                </div>
+
+                <div>
+                  <h2 className="text-xl font-extrabold text-[#0A2342]">
+                    Haulage Details
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Information about your haulage request.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-7 grid gap-6 sm:grid-cols-2">
+                <Detail
+                  label="Pickup Location"
+                  value={request.pickup}
+                  icon={<MapPin size={14} />}
+                />
+
+                <Detail
+                  label="Destination"
+                  value={request.destination}
+                  icon={<MapPin size={14} />}
+                />
+
+                <Detail
+                  label="Goods / Cargo"
+                  value={request.goods}
+                  icon={<Package size={14} />}
+                />
+
+                <Detail
+                  label="Vehicle Type"
+                  value={request.vehicleType}
+                  icon={<Truck size={14} />}
+                />
+              </div>
+            </section>
+          )}
+
+          {/* ====================================================
+              GENERAL LOGISTICS
+             ==================================================== */}
+
+          {isLogistics && (
+            <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FF6B00]/10 text-[#FF6B00]">
+                  <Truck size={21} />
+                </div>
+
+                <div>
+                  <h2 className="text-xl font-extrabold text-[#0A2342]">
+                    Logistics Details
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Information about your logistics request.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-7 grid gap-6 sm:grid-cols-2">
+                <Detail
+                  label="Pickup Location"
+                  value={request.pickup}
+                  icon={<MapPin size={14} />}
+                />
+
+                <Detail
+                  label="Destination"
+                  value={request.destination}
+                  icon={<MapPin size={14} />}
+                />
+
+                <Detail
+                  label="Logistics Type"
+                  value={request.logisticsType}
+                  icon={<Truck size={14} />}
+                />
+
+                <Detail
+                  label="Goods"
+                  value={request.goods}
+                  icon={<Package size={14} />}
+                />
+              </div>
+            </section>
+          )}
+
+          {/* ====================================================
+              UNKNOWN / OLDER LOGISTICS REQUEST
+             ==================================================== */}
+
+          {!isHireCar && !isHaulage && !isLogistics && (
+            <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+              <div className="flex items-center gap-3">
+                <Truck
+                  size={22}
+                  className="text-[#FF6B00]"
+                />
+
+                <h2 className="text-xl font-extrabold text-[#0A2342]">
+                  Request Details
+                </h2>
+              </div>
+
+              <div className="mt-7 grid gap-6 sm:grid-cols-2">
+                <Detail
+                  label="Service"
+                  value={formatService(request.service)}
+                />
+
+                <Detail
+                  label="Pickup"
+                  value={request.pickup}
+                  icon={<MapPin size={14} />}
+                />
+
+                <Detail
+                  label="Destination"
+                  value={request.destination}
+                  icon={<MapPin size={14} />}
+                />
+
+                <Detail
+                  label="Goods"
+                  value={request.goods}
+                  icon={<Package size={14} />}
+                />
+              </div>
+            </section>
+          )}
+
+          {/* MESSAGE */}
+
+          {request.message && (
+            <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+              <h2 className="text-xl font-extrabold text-[#0A2342]">
+                Additional Information
+              </h2>
+
+              <p className="mt-4 whitespace-pre-wrap leading-7 text-slate-600">
+                {request.message}
+              </p>
+            </section>
+          )}
+
+          {/* IMPORTANT */}
+
+          <div className="mt-6 rounded-2xl border border-[#FF6B00]/20 bg-[#FF6B00]/5 p-6">
+            <p className="text-sm font-bold text-[#0A2342]">
+              Keep your tracking ID safe
+            </p>
+
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              You can return to the tracking page and enter this
+              ID whenever you want to check your request status.
+            </p>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  );
+}

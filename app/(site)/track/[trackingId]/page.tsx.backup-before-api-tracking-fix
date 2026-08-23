@@ -1,0 +1,330 @@
+ "use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import {
+  CheckCircle2,
+  Clock3,
+  MapPin,
+  Package,
+  Phone,
+  Mail,
+  User,
+  Truck,
+  AlertCircle,
+} from "lucide-react";
+import {
+  collection,
+  getDocs,
+  limit,
+  query,
+  where,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+type RequestData = {
+  trackingId: string;
+  name: string;
+  phone: string;
+  email: string;
+  service: string;
+  pickup: string;
+  destination: string;
+  goods: string;
+  message: string;
+  status: string;
+};
+
+export default function TrackingDashboard() {
+  const params = useParams();
+  const trackingId = String(params.trackingId || "");
+
+  const [request, setRequest] = useState<RequestData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    async function loadRequest() {
+      if (!trackingId) return;
+
+      try {
+        const requestsQuery = query(
+          collection(db, "messages"),
+          where("trackingId", "==", trackingId),
+          limit(1)
+        );
+
+        const snapshot = await getDocs(requestsQuery);
+
+        if (snapshot.empty) {
+          setNotFound(true);
+          return;
+        }
+
+        const data = snapshot.docs[0].data();
+
+        setRequest({
+          trackingId: data.trackingId || trackingId,
+          name: data.name || "",
+          phone: data.phone || "",
+          email: data.email || "",
+          service: data.service || "",
+          pickup: data.pickup || "",
+          destination: data.destination || "",
+          goods: data.goods || "",
+          message: data.message || "",
+          status: data.status || "Pending",
+        });
+      } catch (error) {
+        console.error("TRACKING ERROR:", error);
+        setNotFound(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadRequest();
+  }, [trackingId]);
+
+  if (loading) {
+    return (
+      <main className="min-h-[70vh] bg-[#F4F6F9] py-20">
+        <div className="container-site">
+          <div className="mx-auto max-w-4xl rounded-2xl bg-white p-10 text-center shadow-sm">
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#FF6B00]" />
+
+            <p className="mt-5 font-semibold text-slate-600">
+              Loading your request...
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (notFound || !request) {
+    return (
+      <main className="min-h-[70vh] bg-[#F4F6F9] py-20">
+        <div className="container-site">
+          <div className="mx-auto max-w-2xl rounded-2xl bg-white p-8 text-center shadow-sm sm:p-12">
+            <AlertCircle
+              size={50}
+              className="mx-auto text-[#FF6B00]"
+            />
+
+            <h1 className="mt-5 text-3xl font-extrabold text-[#0A2342]">
+              Request not found
+            </h1>
+
+            <p className="mt-4 leading-7 text-slate-500">
+              We could not find a request matching this tracking
+              ID. Please check the ID and try again.
+            </p>
+
+            <a
+              href="/track"
+              className="mt-7 inline-flex rounded-xl bg-[#FF6B00] px-6 py-3 font-bold text-white"
+            >
+              Try Another Tracking ID
+            </a>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const status = request.status.toLowerCase();
+
+  return (
+    <main className="min-h-screen bg-[#F4F6F9] py-12 sm:py-20">
+      <div className="container-site">
+        <div className="mx-auto max-w-5xl">
+          {/* HEADER */}
+          <div className="rounded-[2rem] bg-[#0A2342] p-7 text-white sm:p-10">
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#FF6B00]">
+              Request Dashboard
+            </p>
+
+            <h1 className="mt-4 text-3xl font-extrabold sm:text-5xl">
+              Your logistics request
+            </h1>
+
+            <div className="mt-6 flex flex-col gap-2">
+              <span className="text-sm text-slate-300">
+                Tracking ID
+              </span>
+
+              <span className="break-all text-lg font-extrabold tracking-wide text-[#FF6B00] sm:text-2xl">
+                {request.trackingId}
+              </span>
+            </div>
+          </div>
+
+          {/* STATUS */}
+          <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-bold uppercase tracking-[0.15em] text-slate-400">
+                  Current Status
+                </p>
+
+                <div className="mt-3 flex items-center gap-3">
+                  {status === "completed" ? (
+                    <CheckCircle2
+                      size={28}
+                      className="text-green-600"
+                    />
+                  ) : (
+                    <Clock3
+                      size={28}
+                      className="text-[#FF6B00]"
+                    />
+                  )}
+
+                  <span className="text-2xl font-extrabold text-[#0A2342]">
+                    {request.status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-[#F4F6F9] px-5 py-4 text-sm text-slate-500">
+                Your request is being processed by SAYOLA
+                KAYBEE GLOBAL LIMITED.
+              </div>
+            </div>
+          </div>
+
+          {/* BASIC USER INFORMATION */}
+          <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <section className="rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FF6B00]/10 text-[#FF6B00]">
+                  <User size={21} />
+                </div>
+
+                <h2 className="text-xl font-extrabold text-[#0A2342]">
+                  Your Information
+                </h2>
+              </div>
+
+              <div className="mt-7 space-y-5">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Full Name
+                  </p>
+
+                  <p className="mt-1 font-semibold text-slate-700">
+                    {request.name}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    <Phone size={14} />
+                    Phone
+                  </p>
+
+                  <p className="mt-1 font-semibold text-slate-700">
+                    {request.phone}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    <Mail size={14} />
+                    Email
+                  </p>
+
+                  <p className="mt-1 break-all font-semibold text-slate-700">
+                    {request.email}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {/* DELIVERY INFORMATION */}
+            <section className="rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FF6B00]/10 text-[#FF6B00]">
+                  <Truck size={21} />
+                </div>
+
+                <h2 className="text-xl font-extrabold text-[#0A2342]">
+                  Logistics Details
+                </h2>
+              </div>
+
+              <div className="mt-7 space-y-5">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Service
+                  </p>
+
+                  <p className="mt-1 font-semibold text-slate-700">
+                    {request.service}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    <MapPin size={14} />
+                    Pickup
+                  </p>
+
+                  <p className="mt-1 font-semibold text-slate-700">
+                    {request.pickup}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    <MapPin size={14} />
+                    Destination
+                  </p>
+
+                  <p className="mt-1 font-semibold text-slate-700">
+                    {request.destination}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    <Package size={14} />
+                    Goods
+                  </p>
+
+                  <p className="mt-1 font-semibold text-slate-700">
+                    {request.goods}
+                  </p>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          {/* MESSAGE */}
+          <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+            <h2 className="text-xl font-extrabold text-[#0A2342]">
+              Your Request
+            </h2>
+
+            <p className="mt-4 whitespace-pre-wrap leading-7 text-slate-600">
+              {request.message}
+            </p>
+          </section>
+
+          {/* IMPORTANT */}
+          <div className="mt-6 rounded-2xl border border-[#FF6B00]/20 bg-[#FF6B00]/5 p-6">
+            <p className="text-sm font-bold text-[#0A2342]">
+              Keep your tracking ID safe
+            </p>
+
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              You can return to the tracking page and enter this
+              ID whenever you want to check your request status.
+            </p>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}

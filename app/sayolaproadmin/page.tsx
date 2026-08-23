@@ -2,6 +2,7 @@
 
 import {
   Building2,
+  Car,
   FileText,
   MessageSquare,
   Users,
@@ -52,6 +53,16 @@ export default function SayolaProAdminPage() {
             action="Manage Properties"
             onClick={() =>
               router.push("/sayolaproadmin/properties")
+            }
+          />
+
+          <DashboardCard
+            icon={<Car size={24} />}
+            title="Logistics"
+            description="Manage hire cars and vehicles displayed on the Logistics page."
+            action="Manage Logistics"
+            onClick={() =>
+              router.push("/sayolaproadmin/logistics")
             }
           />
 

@@ -1,0 +1,286 @@
+"use client";
+
+import { Suspense, useEffect, useState } from "react";
+import { CheckCircle2, Copy, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+
+type RequestData = {
+  requestId: string;
+  name: string;
+  phone: string;
+  email: string;
+  service: string;
+  carName?: string;
+  hireDate?: string;
+  hireDays?: number;
+  pricePerDay?: number;
+  hireTotal?: number;
+  status?: string;
+};
+
+function RequestSuccessContent() {
+  const searchParams = useSearchParams();
+  const requestId = searchParams.get("id") || "";
+
+  const [request, setRequest] = useState<RequestData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function loadRequest() {
+      if (!requestId) {
+        setError("No Request ID was provided.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `/api/track-request?id=${encodeURIComponent(requestId)}`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error || "Unable to retrieve your request."
+          );
+        }
+
+        setRequest(data);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to retrieve your request."
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadRequest();
+  }, [requestId]);
+
+  function copyRequestId() {
+    if (requestId && navigator.clipboard) {
+      navigator.clipboard.writeText(requestId);
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-[#F4F6F9]">
+      <section className="bg-[#0A2342] py-16 sm:py-20">
+        <div className="container-site text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-500/15">
+            <CheckCircle2
+              size={38}
+              className="text-green-400"
+            />
+          </div>
+
+          <p className="mt-6 text-sm font-bold uppercase tracking-[0.2em] text-[#FF6B00]">
+            Request Submitted
+          </p>
+
+          <h1 className="mt-3 text-3xl font-extrabold text-white sm:text-5xl">
+            Your hire request has been received.
+          </h1>
+
+          <p className="mx-auto mt-5 max-w-2xl leading-7 text-slate-300">
+            Thank you for choosing SAYOLA. Our team will review your
+            vehicle hire request and contact you with the next steps.
+          </p>
+        </div>
+      </section>
+
+      <section className="py-12 sm:py-16">
+        <div className="container-site max-w-3xl">
+          {loading && (
+            <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
+              <Loader2
+                size={30}
+                className="mx-auto animate-spin text-[#FF6B00]"
+              />
+              <p className="mt-4 text-sm font-semibold text-slate-500">
+                Loading your request details...
+              </p>
+            </div>
+          )}
+
+          {error && !loading && (
+            <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
+              <p className="font-bold text-red-600">{error}</p>
+
+              {requestId && (
+                <p className="mt-3 text-sm text-slate-500">
+                  Request ID: {requestId}
+                </p>
+              )}
+
+              <Link
+                href="/track-request"
+                className="mt-6 inline-flex rounded-xl bg-[#FF6B00] px-6 py-3 font-bold text-white"
+              >
+                Track Request
+              </Link>
+            </div>
+          )}
+
+          {request && !loading && (
+            <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+              <div className="bg-[#0A2342] p-6 sm:p-8">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#FF6B00]">
+                  Your Request ID
+                </p>
+
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="break-all text-2xl font-extrabold tracking-wide text-white">
+                    {request.requestId}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={copyRequestId}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20"
+                  >
+                    <Copy size={16} />
+                    Copy ID
+                  </button>
+                </div>
+
+                <p className="mt-3 text-sm text-slate-300">
+                  Keep this Request ID for future enquiries and tracking.
+                </p>
+              </div>
+
+              <div className="p-6 sm:p-8">
+                <h2 className="text-xl font-extrabold text-[#0A2342]">
+                  Request Information
+                </h2>
+
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <Info label="Name" value={request.name} />
+                  <Info label="Phone" value={request.phone} />
+                  <Info label="Email" value={request.email} />
+                  <Info
+                    label="Status"
+                    value={request.status || "Pending"}
+                  />
+
+                  {request.carName && (
+                    <Info
+                      label="Vehicle"
+                      value={request.carName}
+                    />
+                  )}
+
+                  {request.hireDate && (
+                    <Info
+                      label="Hire Date"
+                      value={request.hireDate}
+                    />
+                  )}
+
+                  {request.hireDays !== undefined && (
+                    <Info
+                      label="Number of Days"
+                      value={String(request.hireDays)}
+                    />
+                  )}
+
+                  {request.pricePerDay !== undefined && (
+                    <Info
+                      label="Daily Rate"
+                      value={`₦${Number(
+                        request.pricePerDay
+                      ).toLocaleString()}`}
+                    />
+                  )}
+
+                  {request.hireTotal !== undefined && (
+                    <Info
+                      label="Estimated Hire Total"
+                      value={`₦${Number(
+                        request.hireTotal
+                      ).toLocaleString()}`}
+                    />
+                  )}
+                </div>
+
+                <div className="mt-8 rounded-xl bg-[#F4F6F9] p-5">
+                  <p className="text-sm leading-6 text-slate-600">
+                    Our team will contact you using the information
+                    provided above. Please keep your Request ID safe.
+                  </p>
+                </div>
+
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <Link
+                    href="/track-request"
+                    className="flex-1 rounded-xl border border-slate-200 px-5 py-3 text-center text-sm font-bold text-[#0A2342] hover:bg-slate-50"
+                  >
+                    Track Request
+                  </Link>
+
+                  <Link
+                    href="/logistics"
+                    className="flex-1 rounded-xl bg-[#FF6B00] px-5 py-3 text-center text-sm font-bold text-white hover:bg-[#e85f00]"
+                  >
+                    Back to Logistics
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
+  );
+}
+
+
+export default function RequestSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#F4F6F9]">
+          <section className="flex min-h-screen items-center justify-center px-6">
+            <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
+              <Loader2
+                size={30}
+                className="mx-auto animate-spin text-[#FF6B00]"
+              />
+              <p className="mt-4 text-sm font-semibold text-slate-500">
+                Loading your request...
+              </p>
+            </div>
+          </section>
+        </main>
+      }
+    >
+      <RequestSuccessContent />
+    </Suspense>
+  );
+}
+
+function Info({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-100 p-4">
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-2 break-words text-sm font-bold text-[#0A2342]">
+        {value}
+      </p>
+    </div>
+  );
+}

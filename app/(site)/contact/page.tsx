@@ -63,8 +63,10 @@ export default function ContactPage() {
         service,
         subject: service,
         message,
+        status: "Pending",
         read: false,
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
 
       clearTimeout(timeout);
@@ -274,12 +276,15 @@ export default function ContactPage() {
 
                     <p className="mt-2 text-sm leading-6 text-slate-500">
                       Thank you for contacting SAYOLA KAYBEE GLOBAL
-                      LIMITED. Your enquiry is ready to be processed.
+                      LIMITED. Your enquiry has been received.
                     </p>
+
 
                     <button
                       type="button"
-                      onClick={() => setSubmitted(false)}
+                      onClick={() => {
+                        setSubmitted(false);
+                      }}
                       className="mt-6 font-bold text-[#FF6B00]"
                     >
                       Send another message
